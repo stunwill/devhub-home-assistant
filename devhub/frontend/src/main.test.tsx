@@ -15,7 +15,7 @@ globalThis.fetch = vi.fn(async (url: RequestInfo | URL) => ({
             ? []
             : {},
     ),
-})) as typeof fetch;
+})) as unknown as typeof fetch;
 
 vi.mock('./main.tsx', () => ({}));
 
