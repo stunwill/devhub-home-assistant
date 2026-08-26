@@ -7,8 +7,10 @@ WORKDIR /app
 COPY backend/requirements.txt /app/backend/requirements.txt
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
-COPY frontend/package*.json /app/frontend/
-RUN cd /app/frontend && npm install
+COPY frontend/package.json frontend/package-lock.json /app/frontend/
+RUN cd /app/frontend \
+    && npm ci --include=optional \
+    && npm cache clean --force
 COPY frontend /app/frontend
 RUN cd /app/frontend && npm run build
 
