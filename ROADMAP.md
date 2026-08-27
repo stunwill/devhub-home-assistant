@@ -27,32 +27,46 @@ Delivered:
 - Project Details view with richer repository state.
 - Project logo/icon upload stored in persistent runtime storage.
 - Roadmap and changelog path detection during onboarding.
-- Manual refresh and periodic in-app refresh with stale/error state handling.
+- Manual refresh and stale/error state handling.
 - Public repository installation documentation.
 - Database migration for synchronisation metadata.
 - Preserved Raspberry Pi 5 / aarch64 image build validation.
 
-Remaining v0.2.x follow-up work:
+## v0.3.0 Portfolio Dashboard
 
-- Move periodic synchronisation from browser-session polling to a backend scheduler so refresh continues when no DevHub UI is open.
+Delivered:
+
+- Polished Portfolio dashboard as DevHub's primary day-to-day operational view.
+- Responsive three/two/one-column project card layout for desktop, tablet and mobile.
+- Clear project artwork, repository identity, release, open PR, last merged PR, CI and GitHub sync status.
+- Direct Roadmap and Project Details actions on every project card.
+- Portfolio-level GitHub synchronisation health summary.
+- Backend periodic synchronisation for active projects, so refresh continues when no frontend is open.
+- Real Refresh All behaviour with last-known-good metadata retained on failures.
+- aarch64 add-on startup smoke testing that verifies migration/import/startup health, not just image build success.
+- Preserved PR #4 `PYTHONPATH=/app` startup correction.
+
+Remaining GitHub synchronisation follow-up work:
+
 - Improve CI/check aggregation beyond the combined commit status endpoint, including richer GitHub Actions/check-run state.
 - Improve API request coalescing and conditional refresh/rate-limit telemetry for larger project portfolios.
 - Add richer release/tag fallback detection for repositories that do not publish GitHub Releases.
+- Add richer per-project synchronisation diagnostics and retry/backoff telemetry where operationally useful.
 
-## v0.3.x Roadmap Intelligence
+## v0.4.x Roadmap Intelligence
 
 - Parse common roadmap structures into phases and milestones.
 - Relate backlog items to roadmap work automatically.
 - Surface roadmap sequencing and dependency impacts during release planning.
 
-## v0.4.x Assisted Requirements
+## v0.5.x Assisted Requirements
 
 - AI-assisted analysis of feedback evidence.
 - Suggested defect/enhancement descriptions.
 - Suggested acceptance criteria and test instructions.
 - Duplicate and related-item detection.
 
-## v0.5.x Release Execution
+## v0.6.x Release Execution
 
 - Direct release execution/integration where technically appropriate.
 - Safer release lifecycle automation with explicit review gates.
