@@ -2,6 +2,33 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.3.0] - 2026-08-27
+
+### Added
+
+- Polished Portfolio dashboard with responsive, information-dense project cards.
+- Card-level latest release, open PR, last merged PR, CI and GitHub sync status.
+- Sidebar GitHub synchronisation summary with real degraded/operational state.
+- Backend GitHub synchronisation loop for active projects approximately every 15 minutes, independent of the browser session.
+- `/api/projects/sync-summary` for Portfolio-level GitHub health information.
+- aarch64 Home Assistant add-on startup smoke test that verifies migrations, FastAPI startup and `/api/health` availability.
+
+### Changed
+
+- Portfolio is now the main operational development view rather than a simple project listing.
+- Mobile Portfolio layout now uses a dedicated single-column card design with no page-level horizontal scrolling.
+- Project cards now use uploaded artwork where available and accessible fallback icons otherwise.
+- Home Assistant and frontend version metadata bumped to 0.3.0.
+- Documentation updated for background synchronisation and startup regression protection.
+
+### Preserved
+
+- Repository-URL onboarding and GitHub metadata discovery from v0.2.0.
+- Last-known-good GitHub cache when refresh fails.
+- PR #4 startup import-path fix using `PYTHONPATH=/app`.
+- Raspberry Pi 5 / aarch64 image build protection.
+- Existing Register, Feedback, Release Builder and Roadmap functionality.
+
 ## [0.2.0] - 2026-08-27
 
 ### Added

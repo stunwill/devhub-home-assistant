@@ -47,5 +47,31 @@ jobs:
           file: devhub/Dockerfile
           platforms: linux/arm64
           push: false
+          load: true
+          tags: devhub-ci:aarch64
           build-args: |
             BUILD_FROM=ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.20
+      - name: Smoke test add-on startup
+        run: |
+          mkdir -p /tmp/devhub-config
+          docker run --rm -d --platform linux/arm64 --name devhub-smoke \
+            -p 18099:8099 \
+            -e DEVHUB_DATA_DIR=/config \
+            -e DEVHUB_DATABASE_URL=sqlite:////config/devhub.db \
+            -v /tmp/devhub-config:/config \
+            devhub-ci:aarch64
+          cleanup() { docker logs devhub-smoke || true; docker rm -f devhub-smoke >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          for i in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:18099/api/health >/tmp/devhub-health.json; then
+              cat /tmp/devhub-health.json
+              exit 0
+            fi
+            if ! docker ps --format '{{.Names}}' | grep -q '^devhub-smoke$'; then
+              echo 'DevHub container exited before becoming healthy'
+              exit 1
+            fi
+            sleep 2
+          done
+          echo 'DevHub did not become healthy within 90 seconds'
+          exit 1
