@@ -12,6 +12,7 @@ FROM ${BUILD_FROM}
 RUN apk add --no-cache git
 
 WORKDIR /app
+ENV PYTHONPATH=/app
 COPY backend/requirements.txt /app/backend/requirements.txt
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
