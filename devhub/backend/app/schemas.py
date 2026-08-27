@@ -11,6 +11,7 @@ class ProjectCreate(BaseModel):
     code: str = Field(min_length=2, max_length=12, pattern=r"^[A-Za-z0-9]+$")
     github_owner: str = Field(min_length=1, max_length=120)
     github_repo: str = Field(min_length=1, max_length=160)
+    repository_url: str | None = None
     default_branch: str = "main"
     roadmap_path: str = "ROADMAP.md"
     changelog_path: str = "CHANGELOG.md"
@@ -19,10 +20,27 @@ class ProjectCreate(BaseModel):
 class ProjectOut(ProjectCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    repository_description: str | None = None
+    repository_visibility: str | None = None
+    logo_path: str | None = None
     latest_version: str | None = None
     latest_release_url: str | None = None
     latest_release_at: datetime | None = None
     github_refreshed_at: datetime | None = None
+    github_last_attempt_at: datetime | None = None
+    github_sync_status: str = "Never"
+    github_sync_error: str | None = None
+    github_cache_json: str | None = None
+
+class ProjectDiscover(BaseModel):
+    repository_url: str
+
+class ProjectFromUrl(BaseModel):
+    repository_url: str
+    name: str | None = None
+    code: str | None = None
+    roadmap_path: str | None = None
+    changelog_path: str | None = None
 
 class CriterionCreate(BaseModel):
     description: str = Field(min_length=1)

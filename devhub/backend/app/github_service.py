@@ -1,9 +1,13 @@
 import base64
 import os
+import re
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 import httpx
 
 class GitHubService:
+    REPO_URL_RE = re.compile(r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
+
     def __init__(self, token: str | None = None):
         self.token = token or os.getenv("DEVHUB_GITHUB_TOKEN", "")
         self.base = "https://api.github.com"
@@ -14,6 +18,15 @@ class GitHubService:
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
         return headers
+
+    @classmethod
+    def parse_repository_url(cls, value: str) -> tuple[str, str]:
+        value = value.strip()
+        match = cls.REPO_URL_RE.match(value)
+        if not match:
+            raise ValueError("Enter a GitHub repository URL such as https://github.com/owner/repository")
+        owner, repo = match.groups()
+        return owner, repo
 
     async def _get(self, path: str):
         async with httpx.AsyncClient(timeout=20.0) as client:
@@ -42,15 +55,80 @@ class GitHubService:
         return base64.b64decode(data["content"]).decode("utf-8")
 
     async def open_pull_requests(self, owner: str, repo: str):
-        data = await self._get(f"/repos/{owner}/{repo}/pulls?state=open&per_page=100")
+        data = await self._get(f"/repos/{owner}/{repo}/pulls?state=open&sort=updated&direction=desc&per_page=100")
         return data or []
+
+    async def merged_pull_requests(self, owner: str, repo: str):
+        data = await self._get(f"/repos/{owner}/{repo}/pulls?state=closed&sort=updated&direction=desc&per_page=100")
+        return [p for p in (data or []) if p.get("merged_at")]
+
+    async def last_merged_pull_request(self, owner: str, repo: str):
+        merged = await self.merged_pull_requests(owner, repo)
+        if not merged:
+            return None
+        merged.sort(key=lambda p: p.get("merged_at") or "", reverse=True)
+        p = merged[0]
+        return {
+            "number": p.get("number"),
+            "title": p.get("title"),
+            "url": p.get("html_url"),
+            "merged_at": p.get("merged_at"),
+            "head": (p.get("head") or {}).get("ref"),
+        }
 
     async def latest_commit(self, owner: str, repo: str, branch: str):
         data = await self._get(f"/repos/{owner}/{repo}/commits/{branch}")
         if not data:
             return None
         commit = data.get("commit", {})
-        return {"sha": data.get("sha"), "url": data.get("html_url"), "date": commit.get("committer", {}).get("date")}
+        return {"sha": data.get("sha"), "url": data.get("html_url"), "date": commit.get("committer", {}).get("date"), "message": commit.get("message")}
+
+    async def combined_status(self, owner: str, repo: str, sha: str | None):
+        if not sha:
+            return {"state": "unknown", "statuses": []}
+        data = await self._get(f"/repos/{owner}/{repo}/commits/{sha}/status")
+        if not data:
+            return {"state": "unknown", "statuses": []}
+        return {"state": data.get("state", "unknown"), "statuses": data.get("statuses", [])}
+
+    async def detect_path(self, owner: str, repo: str, ref: str, candidates: list[str]):
+        for path in candidates:
+            try:
+                if await self.file_text(owner, repo, path, ref) is not None:
+                    return path
+            except Exception:
+                continue
+        return None
+
+    async def discover_repository(self, repository_url: str):
+        owner, repo = self.parse_repository_url(repository_url)
+        metadata = await self.repository(owner, repo)
+        if not metadata:
+            raise ValueError("GitHub repository not found or inaccessible")
+        branch = metadata.get("default_branch") or "main"
+        release = await self.latest_release(owner, repo)
+        prs = await self.open_pull_requests(owner, repo)
+        merged = await self.last_merged_pull_request(owner, repo)
+        commit = await self.latest_commit(owner, repo, branch)
+        status = await self.combined_status(owner, repo, commit.get("sha") if commit else None)
+        roadmap = await self.detect_path(owner, repo, branch, ["ROADMAP.md", "docs/ROADMAP.md", "Roadmap.md", "docs/roadmap.md"])
+        changelog = await self.detect_path(owner, repo, branch, ["CHANGELOG.md", "docs/CHANGELOG.md", "Changelog.md", "docs/changelog.md"])
+        return {
+            "owner": owner,
+            "repo": repo,
+            "repository_url": metadata.get("html_url") or repository_url,
+            "name": metadata.get("name") or repo,
+            "description": metadata.get("description"),
+            "visibility": metadata.get("visibility") or ("private" if metadata.get("private") else "public"),
+            "default_branch": branch,
+            "latest_release": release,
+            "open_prs": prs,
+            "last_merged_pr": merged,
+            "latest_commit": commit,
+            "ci": status,
+            "roadmap_path": roadmap,
+            "changelog_path": changelog,
+        }
 
     @staticmethod
     def parse_github_datetime(value: str | None):

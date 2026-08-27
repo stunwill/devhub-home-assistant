@@ -1,18 +1,21 @@
 # DevHub
 
-DevHub is a private Home Assistant add-on for managing a portfolio of GitHub-developed applications. It combines release visibility, per-project roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning and roadmap-aware development prompts.
+DevHub is a Home Assistant add-on for managing a portfolio of GitHub-developed applications. It combines release visibility, pull-request status, per-project roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning and roadmap-aware development prompts.
 
-## v0.1.0 capabilities
+## v0.2.0 capabilities
 
 - Home Assistant add-on packaging with ingress.
 - FastAPI backend, React/Vite frontend and SQLite persistence.
-- Project portfolio with GitHub release metadata.
-- Per-project Markdown roadmap viewing.
+- GitHub repository URL onboarding and project discovery.
+- Responsive project-card dashboard with release, open PR, last merged PR, CI and sync status.
+- Project logo/icon upload stored in persistent runtime storage.
+- Per-project Markdown roadmap viewing and changelog detection.
 - Defect and enhancement register.
 - Mobile-friendly feedback capture with multiple image/video uploads.
 - Acceptance criteria and testing instructions.
 - Next Release Builder and release prompt preview/copy.
 - Release records, GitHub reconciliation and acceptance testing foundation.
+- Raspberry Pi 5/aarch64 Home Assistant image build validation in CI.
 
 ## Architecture
 
@@ -21,43 +24,83 @@ Home Assistant
   -> DevHub add-on / ingress
       -> React frontend
       -> FastAPI REST API
-      -> SQLite + attachment storage under /config
+      -> SQLite + attachments + project artwork under /config
       -> GitHub REST API
 ```
 
-Runtime state is stored under the Home Assistant add-on configuration mapping (`/config` inside the add-on) so database and attachment data survive container replacement/upgrades.
+Runtime state is stored under the Home Assistant add-on configuration mapping (`/config` inside the add-on) so database, project icons and feedback attachments survive container replacement/upgrades.
 
 ## Home Assistant installation
 
-This repository is private. Home Assistant's standard unauthenticated custom add-on repository flow is intended for repositories it can fetch directly, so a private source repository may require an authenticated or local distribution approach.
+This repository is public and can be added to Home Assistant as a custom add-on repository.
 
-For v0.1.0, the supported safe approach is to deploy/copy the `devhub` add-on directory into the Home Assistant local add-ons area, then reload the Add-on Store and install DevHub as a local add-on. This keeps source private and avoids embedding repository credentials into source control.
+Use the repository URL:
 
-A future DevHub release will improve private repository distribution/update automation. See `ROADMAP.md`.
+```text
+https://github.com/stunwill/devhub-home-assistant
+```
+
+In Home Assistant, add the repository to the Add-on Store, refresh the store, then install DevHub. Updates are offered when the add-on version in `devhub/config.yaml` increases in a released repository state.
 
 ### Add-on configuration
 
 DevHub accepts these Home Assistant add-on options:
 
-- `github_token`: GitHub token used by the running DevHub app to access configured repositories. Store this only in add-on options.
+- `github_token`: optional GitHub token. Public repositories work without a token but are subject to lower unauthenticated API rate limits. A token is required for private repositories.
 - `github_owner`: optional default GitHub owner/account.
 
-The token is never committed to this repository and is not returned by the DevHub API.
+The token is consumed from Home Assistant add-on options at runtime. It is never committed to this repository and is not returned by the DevHub API.
 
-## GitHub token permissions
+## Adding a project
 
-Use the least privilege required for repositories DevHub needs to read. v0.1.0 primarily reads repository metadata, releases, files and pull request metadata. Private repositories must be accessible to the supplied credential.
+1. Open **Projects**.
+2. Paste a GitHub repository URL, for example `https://github.com/stunwill/mathquest-home-assistant`.
+3. DevHub validates the URL and retrieves repository metadata.
+4. Review the detected repository, default branch, roadmap and changelog paths.
+5. Optionally upload a project logo/icon.
+6. Save the project.
+
+GitHub-managed metadata is refreshed rather than manually maintained. This includes repository description, visibility, release information, open PRs, last merged PR, latest commit and CI status where GitHub exposes it.
+
+## Synchronisation
+
+DevHub refreshes GitHub metadata:
+
+- when the Portfolio dashboard opens;
+- when Project Details opens;
+- when **Refresh GitHub** is selected;
+- approximately every 15 minutes while the DevHub frontend is open.
+
+The last successful GitHub data is retained if a later refresh fails, and the project displays a stale/error state rather than blanking known information.
+
+A backend scheduler that continues refreshing when the UI is closed remains planned v0.2.x follow-up work.
+
+## Roadmaps and changelogs
+
+During onboarding DevHub checks common locations such as:
+
+- `ROADMAP.md`
+- `docs/ROADMAP.md`
+- `CHANGELOG.md`
+- `docs/CHANGELOG.md`
+
+Paths can be overridden for repositories that use another structure.
+
+## Project artwork
+
+Project logos/icons support SVG, PNG, WebP and JPEG. Uploaded artwork is stored under DevHub runtime storage and is not committed to Git.
 
 ## Persistent data
 
 The following are runtime data and must not be committed:
 
 - SQLite database
+- project logos/icons
 - uploaded screenshots/photos
 - uploaded videos/screen recordings
 - API credentials and tokens
 
-DevHub stores attachments in `/config/uploads` and the SQLite database at `/config/devhub.db` inside the add-on.
+DevHub stores feedback attachments in `/config/uploads`, project artwork in `/config/project-logos`, and the SQLite database at `/config/devhub.db` inside the add-on.
 
 ## Development
 
@@ -68,7 +111,7 @@ cd devhub
 python -m venv .venv
 source .venv/bin/activate
 pip install -r backend/requirements.txt
-pytest backend/tests -q
+python -m pytest backend/tests -q
 uvicorn backend.app.main:app --reload --port 8099
 ```
 
@@ -76,7 +119,7 @@ uvicorn backend.app.main:app --reload --port 8099
 
 ```bash
 cd devhub/frontend
-npm install
+npm ci
 npm run lint
 npm test
 npm run build
@@ -97,22 +140,22 @@ before starting FastAPI.
 
 DevHub uses semantic versioning.
 
-1. Create a focused development/release branch.
+1. Create a focused development/release branch from latest `main`.
 2. Implement and test the release scope.
-3. Update `ROADMAP.md`, `CHANGELOG.md`, README and version metadata where required.
-4. Open a PR into `main`.
-5. Merge only when CI is passing.
-6. Finalise tag/GitHub release after merge.
-7. Home Assistant/local add-on deployment should occur from an explicit released version, not automatically from every merged PR.
-
-A merge to `main` must not silently replace the running add-on.
+3. Add forward-only Alembic migrations where the schema changes.
+4. Update `ROADMAP.md`, `CHANGELOG.md`, README and version metadata.
+5. Open a PR into `main`.
+6. Require backend, frontend and aarch64 add-on CI to pass before merge.
+7. Finalise the tag/GitHub release after merge.
+8. Home Assistant should only offer an update from an explicit new add-on version, not from every arbitrary merged commit.
 
 ## Security
 
 - Secrets are excluded from Git.
+- GitHub repository URLs are restricted to validated `github.com/owner/repository` URLs.
 - Uploaded filenames are sanitised.
-- Upload types and size are validated.
-- Attachments are restricted to DevHub's upload directory.
+- Project artwork and feedback uploads have file type and size validation.
+- Attachments and project artwork are restricted to DevHub runtime directories.
 - Markdown returned by GitHub is sanitised before backend HTML rendering.
 - Database access uses SQLAlchemy.
 - Home Assistant ingress is the expected access boundary for the add-on.
@@ -124,4 +167,4 @@ A merge to `main` must not silently replace the running add-on.
 
 ## Version
 
-Current foundation release: **0.1.0**
+Current release: **0.2.0**
