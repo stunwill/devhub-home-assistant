@@ -1,19 +1,21 @@
 ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.20
+
+FROM node:24-alpine AS frontend-build
+WORKDIR /frontend
+COPY frontend/package.json ./package.json
+RUN npm install --include=optional --no-audit --no-fund
+COPY frontend ./
+RUN npm run build
+
 FROM ${BUILD_FROM}
 
-RUN apk add --no-cache nodejs npm git
+RUN apk add --no-cache git
 
 WORKDIR /app
 COPY backend/requirements.txt /app/backend/requirements.txt
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
-COPY frontend/package.json frontend/package-lock.json /app/frontend/
-RUN cd /app/frontend \
-    && npm ci --include=optional \
-    && npm cache clean --force
-COPY frontend /app/frontend
-RUN cd /app/frontend && npm run build
-
+COPY --from=frontend-build /frontend/dist /app/frontend/dist
 COPY backend /app/backend
 COPY migrations /app/migrations
 COPY alembic.ini /app/alembic.ini
