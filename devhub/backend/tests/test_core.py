@@ -12,7 +12,16 @@ def setup_module(): Base.metadata.drop_all(bind=engine); Base.metadata.create_al
 def teardown_module(): Base.metadata.drop_all(bind=engine)
 
 def test_health():
-    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.2.0'
+    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.3.0'
+
+def test_sync_summary_empty_portfolio():
+    r=client.get('/api/projects/sync-summary')
+    assert r.status_code==200
+    body=r.json()
+    assert body['active_projects']==0
+    assert body['failed_projects']==0
+    assert body['status']=='Operational'
+    assert body['interval_seconds']>=300
 
 def test_repository_url_parser():
     assert GitHubService.parse_repository_url('https://github.com/stunwill/devhub-home-assistant') == ('stunwill','devhub-home-assistant')
@@ -35,6 +44,13 @@ def test_project_and_register_flow():
     assert len(item.json()['criteria'])==1
     release=client.post('/api/releases',json={"project_id":pid,"item_ids":[item.json()['id']]})
     assert release.status_code==201
+
+def test_sync_summary_reports_unsynced_project():
+    r=client.get('/api/projects/sync-summary')
+    assert r.status_code==200
+    body=r.json()
+    assert body['active_projects']==1
+    assert body['failed_projects']==0
 
 def test_attachment_validation():
     item=client.get('/api/register').json()[0]
