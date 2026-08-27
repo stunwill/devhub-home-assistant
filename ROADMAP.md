@@ -4,7 +4,7 @@ DevHub is the Home Assistant development portfolio, feedback, roadmap and releas
 
 ## v0.1.0 Foundation
 
-Initial production foundation:
+Completed foundation:
 
 - Home Assistant add-on packaging and ingress support.
 - Portfolio dashboard and project management.
@@ -17,12 +17,27 @@ Initial production foundation:
 - Release records, reconciliation, acceptance testing and history.
 - SQLite/Alembic persistence, CI and security controls.
 
-## v0.2.x GitHub Synchronisation
+## v0.2.0 GitHub Synchronisation
 
-- Improve automatic repository/release/PR/CI reconciliation.
-- Background refresh scheduling and clearer stale-data handling.
-- Richer release detection and PR linkage.
-- Improve private Home Assistant add-on distribution/update options.
+Delivered:
+
+- GitHub repository URL onboarding and validation.
+- Automatic repository/release/open-PR/last-merged-PR/latest-commit/CI reconciliation.
+- Project card dashboard focused on release and PR status.
+- Project Details view with richer repository state.
+- Project logo/icon upload stored in persistent runtime storage.
+- Roadmap and changelog path detection during onboarding.
+- Manual refresh and periodic in-app refresh with stale/error state handling.
+- Public repository installation documentation.
+- Database migration for synchronisation metadata.
+- Preserved Raspberry Pi 5 / aarch64 image build validation.
+
+Remaining v0.2.x follow-up work:
+
+- Move periodic synchronisation from browser-session polling to a backend scheduler so refresh continues when no DevHub UI is open.
+- Improve CI/check aggregation beyond the combined commit status endpoint, including richer GitHub Actions/check-run state.
+- Improve API request coalescing and conditional refresh/rate-limit telemetry for larger project portfolios.
+- Add richer release/tag fallback detection for repositories that do not publish GitHub Releases.
 
 ## v0.3.x Roadmap Intelligence
 
