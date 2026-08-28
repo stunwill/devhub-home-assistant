@@ -2,11 +2,11 @@ import base64
 import os
 import re
 from datetime import datetime, timezone
-from urllib.parse import urlparse
 import httpx
 
 class GitHubService:
     REPO_URL_RE = re.compile(r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
+    SEMVER_TAG_RE = re.compile(r"^v?\d+\.\d+(?:\.\d+)?(?:[-+][A-Za-z0-9.-]+)?$", re.I)
 
     def __init__(self, token: str | None = None):
         self.token = token or os.getenv("DEVHUB_GITHUB_TOKEN", "")
@@ -25,8 +25,7 @@ class GitHubService:
         match = cls.REPO_URL_RE.match(value)
         if not match:
             raise ValueError("Enter a GitHub repository URL such as https://github.com/owner/repository")
-        owner, repo = match.groups()
-        return owner, repo
+        return match.groups()
 
     async def _get(self, path: str):
         async with httpx.AsyncClient(timeout=20.0) as client:
@@ -46,17 +45,45 @@ class GitHubService:
     async def latest_release(self, owner: str, repo: str):
         return await self._get(f"/repos/{owner}/{repo}/releases/latest")
 
+    async def tags(self, owner: str, repo: str):
+        return await self._get(f"/repos/{owner}/{repo}/tags?per_page=100") or []
+
+    async def release_or_tag(self, owner: str, repo: str):
+        release = await self.latest_release(owner, repo)
+        if release:
+            return {
+                "version": release.get("tag_name"),
+                "url": release.get("html_url"),
+                "published_at": release.get("published_at") or release.get("created_at"),
+                "source": "GitHub Release",
+                "release": release,
+            }
+        for tag in await self.tags(owner, repo):
+            name = tag.get("name") or ""
+            if self.SEMVER_TAG_RE.match(name):
+                return {
+                    "version": name,
+                    "url": f"https://github.com/{owner}/{repo}/tree/{name}",
+                    "published_at": None,
+                    "source": "Git tag",
+                    "release": None,
+                }
+        return {"version": None, "url": None, "published_at": None, "source": "Unknown", "release": None}
+
     async def file_text(self, owner: str, repo: str, path: str, ref: str):
         data = await self._get(f"/repos/{owner}/{repo}/contents/{path}?ref={ref}")
-        if not data:
-            return None
-        if data.get("encoding") != "base64" or "content" not in data:
+        if not data or data.get("encoding") != "base64" or "content" not in data:
             return None
         return base64.b64decode(data["content"]).decode("utf-8")
 
+    async def file_metadata(self, owner: str, repo: str, path: str, ref: str):
+        data = await self._get(f"/repos/{owner}/{repo}/contents/{path}?ref={ref}")
+        if not data:
+            return None
+        return {"sha": data.get("sha"), "path": data.get("path"), "html_url": data.get("html_url")}
+
     async def open_pull_requests(self, owner: str, repo: str):
-        data = await self._get(f"/repos/{owner}/{repo}/pulls?state=open&sort=updated&direction=desc&per_page=100")
-        return data or []
+        return await self._get(f"/repos/{owner}/{repo}/pulls?state=open&sort=updated&direction=desc&per_page=100") or []
 
     async def merged_pull_requests(self, owner: str, repo: str):
         data = await self._get(f"/repos/{owner}/{repo}/pulls?state=closed&sort=updated&direction=desc&per_page=100")
@@ -68,13 +95,7 @@ class GitHubService:
             return None
         merged.sort(key=lambda p: p.get("merged_at") or "", reverse=True)
         p = merged[0]
-        return {
-            "number": p.get("number"),
-            "title": p.get("title"),
-            "url": p.get("html_url"),
-            "merged_at": p.get("merged_at"),
-            "head": (p.get("head") or {}).get("ref"),
-        }
+        return {"number": p.get("number"), "title": p.get("title"), "url": p.get("html_url"), "merged_at": p.get("merged_at"), "head": (p.get("head") or {}).get("ref")}
 
     async def latest_commit(self, owner: str, repo: str, branch: str):
         data = await self._get(f"/repos/{owner}/{repo}/commits/{branch}")
@@ -85,11 +106,28 @@ class GitHubService:
 
     async def combined_status(self, owner: str, repo: str, sha: str | None):
         if not sha:
-            return {"state": "unknown", "statuses": []}
-        data = await self._get(f"/repos/{owner}/{repo}/commits/{sha}/status")
-        if not data:
-            return {"state": "unknown", "statuses": []}
-        return {"state": data.get("state", "unknown"), "statuses": data.get("statuses", [])}
+            return {"state": "unknown", "statuses": [], "checks": []}
+        status_data = await self._get(f"/repos/{owner}/{repo}/commits/{sha}/status") or {}
+        checks_data = await self._get(f"/repos/{owner}/{repo}/commits/{sha}/check-runs?per_page=100") or {}
+        checks = checks_data.get("check_runs") or []
+        conclusions = [c.get("conclusion") for c in checks if c.get("status") == "completed"]
+        running = any(c.get("status") in {"queued", "in_progress", "requested", "waiting", "pending"} for c in checks)
+        failing = any(c in {"failure", "cancelled", "timed_out", "action_required", "startup_failure"} for c in conclusions)
+        passing = bool(checks) and all(c in {"success", "neutral", "skipped"} for c in conclusions) and not running
+        combined = status_data.get("state", "unknown")
+        if failing or combined in {"failure", "error"}:
+            state = "failure"
+        elif running or combined == "pending":
+            state = "pending"
+        elif passing or combined == "success":
+            state = "success"
+        else:
+            state = "unknown"
+        return {
+            "state": state,
+            "statuses": status_data.get("statuses", []),
+            "checks": [{"name": c.get("name"), "status": c.get("status"), "conclusion": c.get("conclusion"), "url": c.get("html_url")} for c in checks],
+        }
 
     async def detect_path(self, owner: str, repo: str, ref: str, candidates: list[str]):
         for path in candidates:
@@ -106,7 +144,7 @@ class GitHubService:
         if not metadata:
             raise ValueError("GitHub repository not found or inaccessible")
         branch = metadata.get("default_branch") or "main"
-        release = await self.latest_release(owner, repo)
+        version_info = await self.release_or_tag(owner, repo)
         prs = await self.open_pull_requests(owner, repo)
         merged = await self.last_merged_pull_request(owner, repo)
         commit = await self.latest_commit(owner, repo, branch)
@@ -121,7 +159,8 @@ class GitHubService:
             "description": metadata.get("description"),
             "visibility": metadata.get("visibility") or ("private" if metadata.get("private") else "public"),
             "default_branch": branch,
-            "latest_release": release,
+            "latest_release": version_info.get("release"),
+            "version": version_info,
             "open_prs": prs,
             "last_merged_pr": merged,
             "latest_commit": commit,
