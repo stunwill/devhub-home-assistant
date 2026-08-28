@@ -33,6 +33,17 @@ class ProjectOut(ProjectCreate):
     github_cache_json: str | None = None
     roadmap_current_phase_id: int | None = None
     roadmap_next_phase_id: int | None = None
+    roadmap_current_override: bool = False
+    roadmap_next_override: bool = False
+    changelog_source_sha: str | None = None
+    changelog_parsed_version: str | None = None
+    changelog_parsed_at: datetime | None = None
+    changelog_status: str | None = None
+    github_rate_limit_remaining: int | None = None
+    github_rate_limit_limit: int | None = None
+    github_rate_limit_reset_at: datetime | None = None
+    github_backoff_until: datetime | None = None
+    github_failure_count: int = 0
 
 class ProjectDiscover(BaseModel):
     repository_url: str
@@ -100,6 +111,7 @@ class RegisterItemOut(RegisterItemCreate):
 class ReleaseCreate(BaseModel):
     project_id: int
     planned_version: str | None = None
+    roadmap_phase_id: int | None = None
     notes: str = ""
     item_ids: list[int] = []
 
@@ -107,6 +119,7 @@ class ReleaseOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     project_id: int
+    roadmap_phase_id: int | None = None
     planned_version: str | None
     actual_version: str | None
     status: str
@@ -116,6 +129,8 @@ class ReleaseOut(BaseModel):
     notes: str
     roadmap_updated: bool
     changelog_updated: bool
+    roadmap_reconciliation_status: str | None = None
+    changelog_reconciliation_status: str | None = None
     created_at: datetime
 
 class TestResultUpdate(BaseModel):

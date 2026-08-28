@@ -12,7 +12,7 @@ def setup_module(): Base.metadata.drop_all(bind=engine); Base.metadata.create_al
 def teardown_module(): Base.metadata.drop_all(bind=engine)
 
 def test_health():
-    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.4.0'
+    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.4.1'
 
 def test_sync_summary_empty_portfolio():
     r=client.get('/api/projects/sync-summary')
@@ -36,6 +36,7 @@ def test_project_and_register_flow():
     assert p.status_code==201
     pid=p.json()['id']
     assert p.json()['github_sync_status']=='Never'
+    assert p.json()['roadmap_current_override'] is False
     dup=client.post('/api/projects',json={"name":"Duplicate","code":"TB","github_owner":"owner","github_repo":"repo","repository_url":"https://github.com/owner/repo","default_branch":"main","roadmap_path":"ROADMAP.md","changelog_path":"CHANGELOG.md","active":True})
     assert dup.status_code==409
     item=client.post('/api/register',json={"project_id":pid,"item_type":"Defect","title":"Mobile overflow","description":"Page scrolls sideways","priority":"High","status":"Approved","actual_behaviour":"Horizontal scroll","expected_behaviour":"No horizontal scroll","testing_instructions":"Test portrait mobile","criteria":[{"description":"No horizontal scrolling","sort_order":0}]})
@@ -45,6 +46,7 @@ def test_project_and_register_flow():
     assert len(item.json()['criteria'])==1
     release=client.post('/api/releases',json={"project_id":pid,"item_ids":[item.json()['id']]})
     assert release.status_code==201
+    assert release.json()['roadmap_phase_id'] is None
 
 def test_sync_summary_reports_unsynced_project():
     r=client.get('/api/projects/sync-summary')
@@ -57,6 +59,13 @@ def test_register_filters_accept_roadmap_fields():
     r=client.get('/api/register?priority=High&status=Approved')
     assert r.status_code==200
     assert len(r.json())==1
+
+def test_sync_diagnostics_contract():
+    rows=client.get('/api/projects/sync-diagnostics')
+    assert rows.status_code==200
+    assert len(rows.json())==1
+    assert 'rate_limit' in rows.json()[0]
+    assert 'roadmap_parse_state' in rows.json()[0]
 
 def test_attachment_validation():
     item=client.get('/api/register').json()[0]

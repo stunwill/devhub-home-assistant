@@ -28,6 +28,17 @@ class Project(Base):
     github_sync_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     roadmap_current_phase_id: Mapped[int | None] = mapped_column(ForeignKey("roadmap_phases.id"), nullable=True)
     roadmap_next_phase_id: Mapped[int | None] = mapped_column(ForeignKey("roadmap_phases.id"), nullable=True)
+    roadmap_current_override: Mapped[bool] = mapped_column(Boolean, default=False)
+    roadmap_next_override: Mapped[bool] = mapped_column(Boolean, default=False)
+    changelog_source_sha: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    changelog_parsed_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    changelog_parsed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    changelog_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    github_rate_limit_remaining: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    github_rate_limit_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    github_rate_limit_reset_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    github_backoff_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    github_failure_count: Mapped[int] = mapped_column(Integer, default=0)
     items = relationship("RegisterItem", back_populates="project", cascade="all, delete-orphan")
     releases = relationship("Release", back_populates="project", cascade="all, delete-orphan")
     roadmap_snapshots = relationship("RoadmapSnapshot", back_populates="project", cascade="all, delete-orphan")
@@ -64,6 +75,7 @@ class RoadmapPhase(Base):
     snapshot = relationship("RoadmapSnapshot", back_populates="phases")
     items = relationship("RoadmapItem", back_populates="phase", cascade="all, delete-orphan", order_by="RoadmapItem.sort_order")
     register_items = relationship("RegisterItem", back_populates="roadmap_phase")
+    releases = relationship("Release", back_populates="roadmap_phase")
 
 class RoadmapItem(Base):
     __tablename__ = "roadmap_items"
@@ -123,6 +135,7 @@ class Release(Base):
     __tablename__ = "releases"
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    roadmap_phase_id: Mapped[int | None] = mapped_column(ForeignKey("roadmap_phases.id"), nullable=True)
     planned_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
     actual_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
     status: Mapped[str] = mapped_column(String(40), default="Planning")
@@ -132,8 +145,11 @@ class Release(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
     roadmap_updated: Mapped[bool] = mapped_column(Boolean, default=False)
     changelog_updated: Mapped[bool] = mapped_column(Boolean, default=False)
+    roadmap_reconciliation_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    changelog_reconciliation_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     project = relationship("Project", back_populates="releases")
+    roadmap_phase = relationship("RoadmapPhase", back_populates="releases")
     scope = relationship("ReleaseItem", back_populates="release", cascade="all, delete-orphan")
     results = relationship("AcceptanceTestResult", back_populates="release", cascade="all, delete-orphan")
 
