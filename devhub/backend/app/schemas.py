@@ -31,6 +31,8 @@ class ProjectOut(ProjectCreate):
     github_sync_status: str = "Never"
     github_sync_error: str | None = None
     github_cache_json: str | None = None
+    roadmap_current_phase_id: int | None = None
+    roadmap_next_phase_id: int | None = None
 
 class ProjectDiscover(BaseModel):
     repository_url: str
@@ -53,6 +55,7 @@ class CriterionOut(CriterionCreate):
 
 class RegisterItemCreate(BaseModel):
     project_id: int
+    roadmap_phase_id: int | None = None
     item_type: str
     title: str = Field(min_length=1, max_length=240)
     description: str = ""
@@ -66,6 +69,7 @@ class RegisterItemCreate(BaseModel):
     criteria: list[CriterionCreate] = []
 
 class RegisterItemUpdate(BaseModel):
+    roadmap_phase_id: int | None = None
     item_type: str | None = None
     title: str | None = None
     description: str | None = None
