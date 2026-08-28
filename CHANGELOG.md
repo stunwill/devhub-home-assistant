@@ -2,6 +2,42 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.5.0] - 2026-08-28
+
+### Added
+
+- First Assisted Requirements workflow from feedback and evidence through to an editable requirement draft and explicit Register-item creation.
+- Optional AI provider service abstraction with Home Assistant configuration for enablement, provider, model, credential and base URL.
+- Structured AI suggestions for title, item type, description, actual/expected behaviour, priority, acceptance criteria, testing instructions and roadmap phase.
+- Screenshot/photo evidence support for compatible OpenAI-style multimodal chat providers, with original attachments retained for the final Register item.
+- Deterministic same-project duplicate and related-item candidate narrowing before AI analysis.
+- Roadmap-aware requirement context limited to relevant current/next phase information.
+- Editable and reorderable acceptance criteria plus explicit roadmap-phase selection in the assisted review UI.
+- AI disabled/not-configured states and a non-AI requirement creation path so core DevHub remains fully usable without AI.
+- Regression CI checks for Home Assistant manifest metadata and ingress-safe Vite production asset paths.
+- Backend coverage for successful mocked analysis, provider failure, invalid model output, candidate detection, roadmap validation and evidence warnings.
+
+### Security and control
+
+- AI drafts never create, approve, prioritise, schedule or release work automatically.
+- Provider credentials remain server-side and are not returned by the status API.
+- Model output is validated through Pydantic before it reaches the UI.
+- Repository, roadmap, feedback and evidence content are treated as untrusted model context rather than executable instructions.
+- OpenAI-compatible custom provider URLs require HTTPS and reject local/private literal IP addresses.
+- No database migration is required because duplicate/related relationships remain advisory in this focused release.
+
+### Limitations
+
+- Video files are retained as Register evidence, but direct video understanding is not enabled in the initial provider path; DevHub reports this explicitly rather than pretending the video was analysed.
+- Persisted duplicate/related-item relationship records remain future v0.5.x work if real usage shows they are valuable.
+
+### Preserved
+
+- v0.4.x Roadmap Intelligence, roadmap/changelog reconciliation and manual planning controls.
+- v0.4.2 relative Vite asset base required for Home Assistant ingress.
+- Modern `app_config` mapping and aarch64/amd64 Home Assistant app support.
+- Existing GitHub synchronisation, Portfolio Dashboard, Release Builder, persistence and aarch64 startup smoke test.
+
 ## [0.4.2] - 2026-08-28
 
 ### Fixed
