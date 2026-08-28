@@ -5,16 +5,7 @@ import {describe, it, expect, vi} from 'vitest';
 
 globalThis.fetch = vi.fn(async (url: RequestInfo | URL) => ({
   ok: true,
-  text: async () =>
-    JSON.stringify(
-      String(url).includes('/api/projects')
-        ? []
-        : String(url).includes('/api/register')
-          ? []
-          : String(url).includes('/api/releases')
-            ? []
-            : {},
-    ),
+  text: async () => JSON.stringify(String(url).includes('/api/projects') ? [] : String(url).includes('/api/register') ? [] : String(url).includes('/api/releases') ? [] : {}),
 })) as unknown as typeof fetch;
 
 vi.mock('./main.tsx', () => ({}));
@@ -22,8 +13,11 @@ vi.mock('./main.tsx', () => ({}));
 describe('DevHub frontend contract', () => {
   it('keeps key product wording available to the UI source', async () => {
     const source = await import('./uiContract');
-    render(<div>{source.navigation.join(' ')} {source.feedbackLabel}</div>);
+    render(<div>{source.navigation.join(' ')} {source.feedbackLabel} {source.roadmapIntelligenceLabels.join(' ')}</div>);
     expect(screen.getByText(/Portfolio/)).toBeInTheDocument();
     expect(screen.getByText(/Feedback/)).toBeInTheDocument();
+    expect(screen.getByText(/Roadmap Intelligence/)).toBeInTheDocument();
+    expect(screen.getByText(/Raw Markdown/)).toBeInTheDocument();
+    expect(screen.getByText(/Reparse Roadmap/)).toBeInTheDocument();
   });
 });
