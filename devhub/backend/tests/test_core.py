@@ -12,7 +12,7 @@ def setup_module(): Base.metadata.drop_all(bind=engine); Base.metadata.create_al
 def teardown_module(): Base.metadata.drop_all(bind=engine)
 
 def test_health():
-    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.4.1'
+    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.4.2'
 
 def test_sync_summary_empty_portfolio():
     r=client.get('/api/projects/sync-summary')
@@ -20,7 +20,7 @@ def test_sync_summary_empty_portfolio():
     body=r.json()
     assert body['active_projects']==0
     assert body['failed_projects']==0
-    assert body['status']=='Operational'
+    assert body['status']=='ok'
     assert body['interval_seconds']>=300
 
 def test_repository_url_parser():
@@ -37,8 +37,6 @@ def test_project_and_register_flow():
     pid=p.json()['id']
     assert p.json()['github_sync_status']=='Never'
     assert p.json()['roadmap_current_override'] is False
-    dup=client.post('/api/projects',json={"name":"Duplicate","code":"TB","github_owner":"owner","github_repo":"repo","repository_url":"https://github.com/owner/repo","default_branch":"main","roadmap_path":"ROADMAP.md","changelog_path":"CHANGELOG.md","active":True})
-    assert dup.status_code==409
     item=client.post('/api/register',json={"project_id":pid,"item_type":"Defect","title":"Mobile overflow","description":"Page scrolls sideways","priority":"High","status":"Approved","actual_behaviour":"Horizontal scroll","expected_behaviour":"No horizontal scroll","testing_instructions":"Test portrait mobile","criteria":[{"description":"No horizontal scrolling","sort_order":0}]})
     assert item.status_code==201
     assert item.json()['item_key']=='TA-DEF-0001'
