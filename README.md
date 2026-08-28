@@ -1,22 +1,24 @@
 # DevHub
 
-DevHub is a Home Assistant add-on for managing a portfolio of GitHub-developed applications. It combines release visibility, pull-request status, per-project roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning and roadmap-aware development prompts.
+DevHub is a Home Assistant add-on for managing a portfolio of GitHub-developed applications. It combines release visibility, pull-request status, structured roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning and roadmap-aware development prompts.
 
-## v0.3.0 capabilities
+## v0.4.0 capabilities
 
 - Home Assistant add-on packaging with ingress.
 - FastAPI backend, React/Vite frontend and SQLite persistence.
 - GitHub repository URL onboarding and project discovery.
-- Polished responsive Portfolio dashboard with project cards for release, open PR, last merged PR, CI and sync state.
+- Responsive Portfolio dashboard with release, PR, CI and sync state.
 - Project logo/icon upload stored in persistent runtime storage.
-- Per-project Markdown roadmap viewing and changelog detection.
+- Deterministic Roadmap Intelligence for common Markdown roadmap structures.
+- Structured and Raw Markdown roadmap views.
+- Roadmap snapshots, phases and items stored relationally.
+- Optional register-item association with roadmap phases.
+- Roadmap-aware filtering and Next Release Builder suggestions.
+- Structured roadmap context in generated release prompts.
+- GitHub Release to Git tag version fallback with source tracking.
+- Richer CI aggregation using GitHub check-runs and combined commit status.
 - Backend GitHub synchronisation approximately every 15 minutes, including when no browser is open.
-- Manual Refresh All plus per-project refresh and stale/error retention.
-- Defect and enhancement register.
-- Mobile-friendly feedback capture with multiple image/video uploads.
-- Acceptance criteria and testing instructions.
-- Next Release Builder and release prompt preview/copy.
-- Release records, GitHub reconciliation and acceptance testing foundation.
+- Manual Refresh All, per-project refresh and Reparse Roadmap actions.
 - Raspberry Pi 5/aarch64 Home Assistant image build validation plus add-on startup smoke testing in CI.
 
 ## Architecture
@@ -29,9 +31,10 @@ Home Assistant
       -> SQLite + attachments + project artwork under /config
       -> GitHub REST API
       -> backend synchronisation task
+      -> deterministic roadmap parser
 ```
 
-Runtime state is stored under the Home Assistant add-on configuration mapping (`/config` inside the add-on) so database, project icons and feedback attachments survive container replacement/upgrades.
+Runtime state is stored under the Home Assistant add-on configuration mapping (`/config` inside the add-on) so database, project icons, roadmap snapshots and feedback attachments survive container replacement/upgrades.
 
 ## Home Assistant installation
 
@@ -56,10 +59,10 @@ The token is consumed from Home Assistant add-on options at runtime. It is never
 
 ## Portfolio dashboard
 
-Portfolio is the main operational view. Each project card shows:
+Portfolio remains the main operational view. Each project card shows:
 
 - project artwork and repository;
-- latest detected GitHub release;
+- latest detected release/version and source where available;
 - open PR count and latest open PR;
 - most recently merged PR and relative merge age;
 - current CI state;
@@ -68,7 +71,60 @@ Portfolio is the main operational view. Each project card shows:
 
 Use **Refresh All** to immediately reconcile all active projects with GitHub. If GitHub refresh fails, DevHub keeps the last successfully cached metadata and marks the project as stale/degraded instead of blanking the card.
 
-The dashboard uses real GitHub/project data. Mock values are limited to automated tests.
+## Roadmap Intelligence
+
+DevHub keeps the configured `ROADMAP.md` file as the authoritative source. It retrieves that Markdown and parses common structures such as:
+
+- version headings such as `v1.2.0 Dashboard`;
+- version ranges such as `v1.3.x`;
+- phase and milestone headings;
+- planned/current/completed/future sections;
+- bullet items and Markdown task-list items.
+
+The Roadmap view provides:
+
+- **Structured** view for parsed phases and roadmap items;
+- **Raw Markdown** view for the original source;
+- current and next phase summaries where they can be resolved reliably;
+- parse status and warnings;
+- **Reparse Roadmap** for manual parser refresh.
+
+Roadmap snapshots are cached using the GitHub source-file SHA. DevHub reuses the existing parsed snapshot when the roadmap has not changed instead of repeatedly parsing the same content.
+
+DevHub does not automatically rewrite `ROADMAP.md` in v0.4.0.
+
+## Register and roadmap association
+
+Register items may optionally reference a parsed roadmap phase while retaining their separate target-release value.
+
+This allows a work item to have, for example:
+
+```text
+Roadmap phase: v0.4.x Roadmap Intelligence
+Target release: v0.4.1
+```
+
+The Register can be filtered by project and roadmap phase. Unassigned work remains visible.
+
+## Roadmap-aware release planning
+
+The Next Release Builder shows the project's current release and next parsed roadmap phase. Items explicitly associated with that next phase are highlighted as suggested scope, but DevHub does not automatically select them.
+
+Generated release prompts include structured current/next roadmap context and roadmap phase assignment for selected register items while still instructing the development workflow to verify the raw roadmap.
+
+## Version detection
+
+DevHub uses this hierarchy when detecting project versions:
+
+1. latest GitHub Release;
+2. semantic Git tag;
+3. Unknown when neither can be determined safely.
+
+The detected source is stored with the GitHub cache. DevHub does not invent a version.
+
+## CI status
+
+CI state combines GitHub check-run data with the combined commit-status endpoint where available. DevHub maps the result into Passing, Failing, Pending or Unknown without reporting Passing when a known check is failing or still running.
 
 ## Adding a project
 
@@ -79,42 +135,22 @@ The dashboard uses real GitHub/project data. Mock values are limited to automate
 5. Optionally upload a project logo/icon.
 6. Save the project.
 
-GitHub-managed metadata is refreshed rather than manually maintained. This includes repository description, visibility, release information, open PRs, last merged PR, latest commit and CI status where GitHub exposes it.
-
 ## Synchronisation
 
-DevHub refreshes GitHub metadata:
+DevHub refreshes GitHub metadata through a backend scheduler approximately every 15 minutes for active projects, when **Refresh All** is selected, and when Project Details requests a project refresh.
 
-- through a backend scheduler approximately every 15 minutes for active projects;
-- when **Refresh All** is selected;
-- when Project Details requests a project refresh.
-
-The last successful GitHub data is retained if a later refresh fails, and the project displays a stale/error state rather than blanking known information.
-
-## Roadmaps and changelogs
-
-During onboarding DevHub checks common locations such as:
-
-- `ROADMAP.md`
-- `docs/ROADMAP.md`
-- `CHANGELOG.md`
-- `docs/CHANGELOG.md`
-
-Paths can be overridden for repositories that use another structure.
-
-## Project artwork
-
-Project logos/icons support SVG, PNG, WebP and JPEG. Uploaded artwork is stored under DevHub runtime storage and is not committed to Git.
+The last successful GitHub data is retained if a later refresh fails. Roadmap snapshots are refreshed only when needed and are reused when the source SHA is unchanged.
 
 ## Persistent data
 
 The following are runtime data and must not be committed:
 
-- SQLite database
-- project logos/icons
-- uploaded screenshots/photos
-- uploaded videos/screen recordings
-- API credentials and tokens
+- SQLite database;
+- roadmap snapshots/cache;
+- project logos/icons;
+- uploaded screenshots/photos;
+- uploaded videos/screen recordings;
+- API credentials and tokens.
 
 DevHub stores feedback attachments in `/config/uploads`, project artwork in `/config/project-logos`, and the SQLite database at `/config/devhub.db` inside the add-on.
 
@@ -152,18 +188,20 @@ alembic upgrade head
 
 before starting FastAPI. The runtime image sets `PYTHONPATH=/app` so Alembic and Uvicorn resolve `backend.app` consistently.
 
+v0.4.0 adds a forward migration for roadmap snapshots, phases, items and register-item phase associations. Existing v0.3.x data is retained.
+
 ## CI and startup protection
 
 CI runs:
 
-- backend tests;
+- backend tests, including deterministic roadmap parser tests;
 - frontend type/lint checks;
 - frontend tests;
 - frontend production build;
 - aarch64 Home Assistant image build;
 - aarch64 container startup smoke test against `/api/health`.
 
-The startup smoke test is intended to catch failures that only appear after the Docker image is launched, including migration/import regressions.
+The startup smoke test verifies that migrations complete and FastAPI starts inside the built ARM64 image.
 
 ## Release process
 
@@ -176,7 +214,6 @@ DevHub uses semantic versioning.
 5. Open a PR into `main`.
 6. Require backend, frontend, aarch64 add-on build and startup smoke CI to pass before merge.
 7. Finalise the tag/GitHub release after merge.
-8. Home Assistant should only offer an update from an explicit new add-on version, not from every arbitrary merged commit.
 
 ## Security
 
@@ -196,4 +233,4 @@ DevHub uses semantic versioning.
 
 ## Version
 
-Current development release: **0.3.0**
+Current development release: **0.4.0**
