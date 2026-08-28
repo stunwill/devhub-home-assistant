@@ -1,7 +1,6 @@
 import os
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 os.environ["DEVHUB_DATABASE_URL"] = "sqlite:///./test-assisted-devhub.db"
@@ -10,7 +9,7 @@ os.environ["DEVHUB_DATA_DIR"] = "./test-assisted-data"
 from backend.app.assisted_requirements import candidate_items
 from backend.app.database import Base, SessionLocal, engine
 from backend.app.main import app
-from backend.app.models import Project, RegisterItem, RoadmapPhase, RoadmapSnapshot
+from backend.app.models import Project, RoadmapPhase, RoadmapSnapshot
 
 client = TestClient(app)
 
@@ -66,7 +65,7 @@ def test_successful_structured_analysis_is_advisory_only():
 
 def test_provider_failure_returns_502_without_creating_item():
     project_id = create_project()
-    with patch('backend.app.assisted_requirements.OpenAICompatibleProvider.analyse', new=AsyncMock(side_effect=RuntimeError("provider offline"))):
+    with patch('backend.app.assisted_requirements.OpenAICompatibleProvider.analyse', new=AsyncMock(side_effect=Exception("provider offline"))):
         response = client.post('/api/assisted-requirements/analyse', json={"project_id": project_id, "feedback": "A useful feedback sentence", "attachments": []})
     assert response.status_code == 502
     assert client.get('/api/register').json() == []
