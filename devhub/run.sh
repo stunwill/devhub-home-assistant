@@ -6,24 +6,26 @@ export DEVHUB_DATA_DIR=/config
 export DEVHUB_DATABASE_URL="sqlite:////config/devhub.db"
 
 if [ -f /data/options.json ]; then
-  export DEVHUB_GITHUB_TOKEN="$(python3 - <<'PY'
+  eval "$(python3 - <<'PY'
 import json
+import shlex
 from pathlib import Path
 p = Path('/data/options.json')
 try:
-    print(json.loads(p.read_text()).get('github_token',''))
+    data = json.loads(p.read_text())
 except Exception:
-    print('')
-PY
-)"
-  export DEVHUB_GITHUB_OWNER="$(python3 - <<'PY'
-import json
-from pathlib import Path
-p = Path('/data/options.json')
-try:
-    print(json.loads(p.read_text()).get('github_owner',''))
-except Exception:
-    print('')
+    data = {}
+values = {
+    'DEVHUB_GITHUB_TOKEN': data.get('github_token', ''),
+    'DEVHUB_GITHUB_OWNER': data.get('github_owner', ''),
+    'DEVHUB_AI_ENABLED': str(bool(data.get('ai_enabled', False))).lower(),
+    'DEVHUB_AI_PROVIDER': data.get('ai_provider', 'openai'),
+    'DEVHUB_AI_MODEL': data.get('ai_model', ''),
+    'DEVHUB_AI_API_KEY': data.get('ai_api_key', ''),
+    'DEVHUB_AI_BASE_URL': data.get('ai_base_url', 'https://api.openai.com/v1'),
+}
+for key, value in values.items():
+    print(f'export {key}={shlex.quote(str(value or ""))}')
 PY
 )"
 fi
