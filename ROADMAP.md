@@ -46,18 +46,30 @@ Delivered:
 - aarch64 add-on startup smoke testing that verifies migration/import/startup health, not just image build success.
 - Preserved PR #4 `PYTHONPATH=/app` startup correction.
 
-Remaining GitHub synchronisation follow-up work:
+## v0.4.0 Roadmap Intelligence
 
-- Improve CI/check aggregation beyond the combined commit status endpoint, including richer GitHub Actions/check-run state.
-- Improve API request coalescing and conditional refresh/rate-limit telemetry for larger project portfolios.
-- Add richer release/tag fallback detection for repositories that do not publish GitHub Releases.
-- Add richer per-project synchronisation diagnostics and retry/backoff telemetry where operationally useful.
+Delivered:
 
-## v0.4.x Roadmap Intelligence
+- Deterministic Markdown roadmap parser for common version, phase, milestone and Future structures.
+- Structured Roadmap view while preserving Raw Markdown as the authoritative source view.
+- Persistent roadmap snapshots, phases and roadmap items with Alembic migration support.
+- Current/next roadmap phase resolution with user-overridable selection endpoints.
+- Register item association with roadmap phases and roadmap-aware filtering.
+- Project Details roadmap summary and phase/item visibility.
+- Roadmap-aware Next Release Builder suggestions without automatic scope selection.
+- Structured roadmap context included in generated release prompts.
+- GitHub Release to Git tag version fallback with recorded version source.
+- Richer CI aggregation using GitHub check-runs plus combined commit status.
+- Roadmap cache reuse when the source file SHA has not changed.
+- Manual Reparse Roadmap support.
 
-- Parse common roadmap structures into phases and milestones.
-- Relate backlog items to roadmap work automatically.
-- Surface roadmap sequencing and dependency impacts during release planning.
+Remaining Roadmap Intelligence follow-up work:
+
+- Richer roadmap reconciliation preview after releases, including clearer completed/outstanding recommendations.
+- Changelog version comparison and explicit reconciliation warnings.
+- More advanced current/next phase confirmation controls in the frontend.
+- Wider parser validation against additional roadmap styles from the project portfolio.
+- Better API request coalescing, retry/backoff telemetry and rate-limit diagnostics for larger portfolios.
 
 ## v0.5.x Assisted Requirements
 
