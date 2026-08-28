@@ -11,9 +11,9 @@ globalThis.fetch = vi.fn(async (url: RequestInfo | URL) => ({
 vi.mock('./main.tsx', () => ({}));
 
 describe('DevHub frontend contract', () => {
-  it('keeps roadmap intelligence and reconciliation wording available', async () => {
+  it('keeps roadmap intelligence, reconciliation and assisted requirements wording available', async () => {
     const source = await import('./uiContract');
-    render(<div>{source.navigation.join(' ')} {source.feedbackLabel} {source.roadmapIntelligenceLabels.join(' ')} {source.reconciliationLabels.join(' ')}</div>);
+    render(<div>{source.navigation.join(' ')} {source.feedbackLabel} {source.roadmapIntelligenceLabels.join(' ')} {source.reconciliationLabels.join(' ')} {source.assistedRequirementsLabels.join(' ')}</div>);
     expect(screen.getByText(/Portfolio/)).toBeInTheDocument();
     expect(screen.getByText(/Feedback/)).toBeInTheDocument();
     expect(screen.getByText(/Roadmap Intelligence/)).toBeInTheDocument();
@@ -25,5 +25,9 @@ describe('DevHub frontend contract', () => {
     expect(screen.getByText(/Suggested roadmap reconciliation/)).toBeInTheDocument();
     expect(screen.getByText(/GitHub synchronisation diagnostics/)).toBeInTheDocument();
     expect(screen.getByText(/GitHub rate limit/)).toBeInTheDocument();
+    expect(screen.getByText(/Analyse & Draft Requirement/)).toBeInTheDocument();
+    expect(screen.getByText(/Suggested requirement/)).toBeInTheDocument();
+    expect(screen.getByText(/Possible duplicate/)).toBeInTheDocument();
+    expect(screen.getByText(/Create Register Item/)).toBeInTheDocument();
   });
 });

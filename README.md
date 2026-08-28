@@ -1,10 +1,10 @@
 # DevHub
 
-DevHub is a Home Assistant add-on for managing a portfolio of GitHub-developed applications. It combines release visibility, pull-request status, structured roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning and deterministic roadmap/release reconciliation.
+DevHub is a Home Assistant app for managing a portfolio of GitHub-developed applications. It combines release visibility, pull-request status, structured roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning, deterministic roadmap/release reconciliation and optional Assisted Requirements.
 
-## v0.4.1 capabilities
+## v0.5.0 capabilities
 
-- Home Assistant add-on packaging with ingress.
+- Home Assistant app packaging with ingress.
 - FastAPI backend, React/Vite frontend and SQLite persistence.
 - GitHub repository URL onboarding and project discovery.
 - Responsive Portfolio dashboard with release, PR, CI and sync state.
@@ -19,18 +19,22 @@ DevHub is a Home Assistant add-on for managing a portfolio of GitHub-developed a
 - Deterministic `CHANGELOG.md` version parsing and reconciliation.
 - Roadmap-aware filtering and Next Release Builder suggestions without automatic scope selection.
 - Focused release prompts using current/next/selected phase, reconciliation and changelog context.
+- Optional Assisted Requirements workflow that converts feedback into an editable structured requirement draft.
+- Screenshot/photo evidence analysis for compatible multimodal providers, plus retained image/video evidence on confirmed Register items.
+- Deterministic duplicate/related candidate narrowing against same-project Register items.
+- Suggested acceptance criteria, testing instructions, priority, item type and optional roadmap phase with explicit user review.
 - GitHub Release to Git tag version fallback with version-source tracking.
 - CI aggregation using GitHub check-runs and combined commit status.
 - GitHub synchronisation diagnostics with rate-limit and retry/backoff visibility.
 - Backend GitHub synchronisation approximately every 15 minutes, including when no browser is open.
 - Manual Refresh All, per-project refresh and Reparse Roadmap actions.
-- Raspberry Pi 5/aarch64 Home Assistant image build validation plus add-on startup smoke testing in CI.
+- Raspberry Pi 5/aarch64 Home Assistant image build validation plus startup smoke testing in CI.
 
 ## Architecture
 
 ```text
 Home Assistant
-  -> DevHub add-on / ingress
+  -> DevHub app / ingress
       -> React frontend
       -> FastAPI REST API
       -> SQLite + attachments + project artwork under /config
@@ -38,13 +42,14 @@ Home Assistant
       -> backend synchronisation task
       -> deterministic roadmap/changelog parsers
       -> reconciliation service
+      -> optional Assisted Requirements provider service
 ```
 
-Runtime state is stored under the Home Assistant add-on configuration mapping (`/config` inside the add-on), so database, project icons, roadmap snapshots and feedback attachments survive container replacement/upgrades.
+Runtime state is stored under the Home Assistant app configuration mapping (`/config` inside the app), so database, project icons, roadmap snapshots and feedback attachments survive container replacement/upgrades.
 
 ## Home Assistant installation
 
-This repository is public and can be added to Home Assistant as a custom add-on repository.
+This repository can be added to Home Assistant as a custom app/add-on repository.
 
 Use the repository URL:
 
@@ -52,20 +57,70 @@ Use the repository URL:
 https://github.com/stunwill/devhub-home-assistant
 ```
 
-In Home Assistant, add the repository to the Add-on Store, refresh the store, then install DevHub. Updates are offered when the add-on version in `devhub/config.yaml` increases in a released repository state.
+In Home Assistant, add the repository, refresh the store, then install DevHub. Updates are offered when the version in `devhub/config.yaml` increases in a released repository state.
 
-### Add-on configuration
+### App configuration
 
-DevHub accepts these Home Assistant add-on options:
+DevHub accepts these Home Assistant options:
 
 - `github_token`: optional GitHub token. Public repositories work without a token but are subject to lower unauthenticated API rate limits. A token is required for private repositories.
 - `github_owner`: optional default GitHub owner/account.
+- `ai_enabled`: enables Assisted Requirements analysis. Defaults to `false`.
+- `ai_provider`: `openai` or `openai-compatible`.
+- `ai_model`: model identifier supplied by the configured provider. DevHub deliberately does not hard-code a default model.
+- `ai_api_key`: provider API credential.
+- `ai_base_url`: only used for `openai-compatible`; custom URLs must use HTTPS.
 
-The token is consumed from Home Assistant add-on options at runtime. It is never committed to this repository and is not returned by the DevHub API.
+Credentials are consumed from Home Assistant options at runtime. GitHub and AI API keys are never committed to this repository and are never returned by the DevHub API.
+
+If AI is disabled or not configured, all existing DevHub functionality remains available and the feedback flow offers a non-AI requirement creation path.
+
+## Assisted Requirements
+
+The v0.5.0 workflow is deliberately assisted rather than autonomous:
+
+```text
+Feedback
+  -> optional screenshots/photos/video evidence
+  -> Analyse & Draft Requirement
+  -> structured suggestion
+  -> user review/edit
+  -> explicit Create Register Item
+```
+
+DevHub may suggest:
+
+- title;
+- item type;
+- description;
+- actual and expected behaviour;
+- priority;
+- acceptance criteria;
+- testing instructions;
+- a relevant current/next roadmap phase;
+- possible duplicate or related Register items.
+
+Every suggested field remains editable. Acceptance criteria can be added, removed and reordered. The user can discard the draft, cancel, choose a different roadmap phase, or continue without AI.
+
+Analysis alone never creates a Register item. It also never approves work, assigns release scope, changes roadmap state, edits `ROADMAP.md`/`CHANGELOG.md`, executes GitHub writes or performs a release.
+
+### Evidence handling
+
+Screenshot/photo evidence is sent to compatible OpenAI-style multimodal chat providers as image input, within a bounded analysis payload. Multiple selected files remain browser-side until the user explicitly creates the Register item, at which point the original files are uploaded through the existing attachment API.
+
+Video evidence is accepted and retained with the final Register item. Direct video understanding is not enabled in the initial v0.5.0 provider path. DevHub reports that limitation explicitly instead of claiming the recording was analysed.
+
+The analysis context is intentionally bounded to the supplied feedback, relevant project metadata, current/next roadmap context and a small local set of potential related Register items. DevHub does not send entire repositories, roadmaps, changelogs or the full Register to the AI provider.
+
+### Duplicate and related detection
+
+Before model analysis, DevHub performs deterministic same-project token-overlap matching against structured Register fields. Stronger matches are shown as **Possible duplicate** and weaker matches as **Possibly related**.
+
+These are advisory only in v0.5.0. DevHub does not automatically merge, reject or link work, and no database migration is introduced solely for relationships.
 
 ## Portfolio dashboard
 
-Portfolio remains the main operational view. Each project card shows project identity, latest detected release/version, open PRs, last merged PR, CI and GitHub sync state. Project Details contains the richer reconciliation and diagnostics information so the Portfolio cards remain compact.
+Portfolio remains the main operational view. Each project card shows project identity, latest detected release/version, open PRs, last merged PR, CI and GitHub sync state. Project Details contains richer reconciliation and diagnostics information so Portfolio cards remain compact.
 
 Use **Refresh All** to immediately refresh all active projects. If GitHub refresh fails, DevHub retains last-known-good metadata and marks the project degraded instead of clearing useful data.
 
@@ -89,115 +144,37 @@ Ignoring or overriding a phase changes only DevHub-managed metadata. DevHub does
 
 DevHub compares available deterministic evidence including the detected GitHub version, version source, DevHub release records, associated roadmap phase, parsed roadmap items and linked/selected Register scope.
 
-Possible roadmap reconciliation states are:
-
-- **Reconciled**
-- **Reconciliation recommended**
-- **Reconciliation required**
-- **Unable to determine**
+Possible roadmap reconciliation states are **Reconciled**, **Reconciliation recommended**, **Reconciliation required** and **Unable to determine**.
 
 Project Details explains the reasons and provides a read-only suggested roadmap reconciliation preview. Free-form roadmap bullets are not treated as perfect implementation mappings, and uncertain evidence remains explicit. DevHub never edits or commits `ROADMAP.md` as part of reconciliation.
 
 ## Changelog reconciliation
 
-`CHANGELOG.md` remains authoritative. DevHub deterministically recognises common headings such as:
-
-```text
-## [0.4.1]
-## v0.4.1
-## 0.4.1
-```
-
-`Unreleased` headings are skipped when looking for the latest documented release. Semantic `v` prefixes are normalised for comparison.
-
-Changelog states are:
-
-- **Current**
-- **Changelog may require reconciliation**
-- **Ahead of detected release**
-- **Unable to determine**
-- **Missing changelog**
-
-DevHub does not automatically modify `CHANGELOG.md`.
+`CHANGELOG.md` remains authoritative. DevHub recognises common semantic-version headings, skips `Unreleased` when resolving the latest documented release, and reports Current/Ahead/Reconciliation/Unable-to-determine states without automatically editing the file.
 
 ## Register and roadmap association
 
 Register items may reference a parsed roadmap phase while retaining a separate target release. Release records may also reference a roadmap phase independently of individual Register-item associations.
 
-This keeps planning relationships explicit without forcing every roadmap bullet to correspond to a Register item.
-
 ## Roadmap-aware release planning
 
-The Next Release Builder shows:
+The Next Release Builder shows the current detected release, current/next roadmap phase, explicit target roadmap phase and suggested Register scope. Nothing is automatically selected.
 
-- current detected release;
-- current roadmap phase and whether it is detected or user-confirmed;
-- next roadmap phase;
-- an explicit target roadmap phase for the planned release;
-- suggested Register scope.
-
-Suggested scope prioritises work explicitly assigned to the selected roadmap phase, then approved/planned items, then relevant unassigned work. Nothing is automatically selected.
-
-Generated release prompts include the detected release and source, current/next phase state, selected release phase, relevant roadmap items, selected Register items, acceptance criteria, known reconciliation warnings and changelog state. Prompts explicitly instruct the development workflow to reconcile `ROADMAP.md` and `CHANGELOG.md` after implementation.
-
-## Release history
-
-Release history retains lifecycle traceability rather than replacing GitHub Releases. Release records can contain planned/actual version information, roadmap phase association, GitHub/PR links where recorded, selected scope and roadmap/changelog reconciliation states.
-
-## Version detection
-
-DevHub currently prefers:
-
-1. latest GitHub Release;
-2. semantic Git tag;
-3. Unknown when neither can be determined safely.
-
-The selected source is recorded and displayed. DevHub does not invent semantic meaning for arbitrary tag or changelog headings.
-
-## CI status
-
-CI combines GitHub check-run data with combined commit status where available. Project Details shows lightweight check counts. A known failing or running relevant check prevents DevHub from reporting the overall CI state as Passing.
+Generated release prompts include relevant roadmap, reconciliation and changelog context while preserving manual scope selection.
 
 ## GitHub synchronisation diagnostics
 
-Settings provides operational diagnostics for each project, including:
-
-- last successful and attempted sync;
-- sync state and last error;
-- latest commit SHA;
-- roadmap source SHA and parse time/state;
-- detected version and source;
-- CI state;
-- changelog reconciliation state;
-- GitHub API rate-limit remaining/limit/reset data where provided;
-- active retry/backoff window.
-
-DevHub coalesces roadmap/changelog content and metadata requests where practical, caches source SHAs and parsed state, and avoids reparsing unchanged files. Temporary GitHub failures trigger per-project backoff. One failing project does not block other projects from refreshing.
-
-## Adding a project
-
-1. Open **Projects** or select **Add Project** from Portfolio.
-2. Paste a GitHub repository URL, for example `https://github.com/stunwill/mathquest-home-assistant`.
-3. DevHub validates the URL and retrieves repository metadata.
-4. Review the detected repository, default branch, roadmap and changelog paths.
-5. Optionally upload a project logo/icon.
-6. Save the project.
+Settings provides operational diagnostics including sync attempts, latest commit/roadmap SHAs, version source, CI state, changelog state, rate-limit information, backoff state and last error.
 
 ## Home Assistant ingress and mobile behaviour
 
-Frontend/API paths remain relative so DevHub continues to operate through Home Assistant ingress instead of assuming the application is hosted at `/` externally. New roadmap, reconciliation, release and diagnostics layouts are responsive, wrap long phase titles and avoid page-level horizontal scrolling on portrait mobile. Dense tabular data may scroll locally where appropriate.
+Frontend production assets use Vite `base: './'` so JS/CSS remain relative to the Home Assistant ingress path. CI explicitly rejects root-absolute `/assets/...` paths. The Assisted Requirements modal and existing dashboard layouts avoid page-level horizontal scrolling on portrait mobile.
 
 ## Persistent data
 
-Runtime data that must not be committed includes:
+Runtime data that must not be committed includes SQLite data, roadmap/changelog cache metadata, project logos, uploaded screenshots/photos/videos and API credentials.
 
-- SQLite database;
-- roadmap/changelog cache metadata;
-- project logos/icons;
-- uploaded screenshots/photos/videos;
-- API credentials and tokens.
-
-DevHub stores feedback attachments in `/config/uploads`, project artwork in `/config/project-logos`, and the SQLite database at `/config/devhub.db` inside the add-on.
+DevHub stores feedback attachments in `/config/uploads`, project artwork in `/config/project-logos`, and SQLite at `/config/devhub.db`.
 
 ## Development
 
@@ -225,57 +202,20 @@ npm run dev
 
 ## Database migrations
 
-Alembic is configured under `devhub/migrations`. Add-on startup runs:
-
-```bash
-alembic upgrade head
-```
-
-before starting FastAPI. The runtime image preserves `PYTHONPATH=/app` so Alembic and Uvicorn resolve `backend.app` consistently.
-
-v0.4.1 adds a forward migration from the v0.4.0 Roadmap Intelligence schema for phase overrides, changelog metadata, release-to-roadmap associations, reconciliation state and synchronisation/rate-limit/backoff diagnostics. Existing data is retained.
+Alembic is configured under `devhub/migrations`, and app startup runs `alembic upgrade head` before FastAPI. v0.5.0 does not require a new migration because Assisted Requirements drafts are non-persistent until explicit Register creation and duplicate/related relationships remain advisory.
 
 ## CI and startup protection
 
-CI runs:
+CI verifies:
 
-- all backend tests, including roadmap parser, changelog parser, reconciliation, phase-selection and migration tests;
-- frontend type/lint checks;
-- frontend tests;
+- backend tests including Assisted Requirements deterministic/mocked-provider tests;
+- frontend type/lint checks and tests;
 - frontend production build;
-- aarch64 Home Assistant image build;
-- aarch64 container startup smoke test against `/api/health`.
-
-The startup smoke test proves the built image starts, migrations complete, FastAPI starts and `/api/health` responds.
+- ingress-safe relative production asset paths;
+- Home Assistant manifest keeps `app_config`, aarch64 support and no deprecated `armv7` declaration;
+- aarch64 image build;
+- aarch64 container startup and `/api/health` reporting the release version.
 
 ## Release process
 
-DevHub uses semantic versioning.
-
-1. Create a focused release branch from latest merged `main`.
-2. Implement and test the release scope.
-3. Add a forward Alembic migration when the schema changes.
-4. Reconcile `ROADMAP.md`, `CHANGELOG.md`, README and version metadata.
-5. Open a PR into `main`.
-6. Require backend, frontend, aarch64 build and startup smoke checks to pass before merge.
-7. Finalise the appropriate tag/GitHub release after merge when release tooling is available.
-
-## Security
-
-- Secrets are excluded from Git.
-- GitHub repository URLs are restricted to validated `github.com/owner/repository` URLs.
-- Uploaded filenames are sanitised.
-- Project artwork and feedback uploads have file type and size validation.
-- Attachments and project artwork are restricted to DevHub runtime directories.
-- Markdown returned by GitHub is sanitised before backend HTML rendering.
-- Database access uses SQLAlchemy.
-- Home Assistant ingress is the expected access boundary for the add-on.
-
-## Project documents
-
-- [Roadmap](ROADMAP.md)
-- [Changelog](CHANGELOG.md)
-
-## Version
-
-Current development release: **0.4.1**
+DevHub uses semantic versioning. Releases are developed on focused branches from latest merged `main`, fully tested in a PR, and merged only when required checks are green. Schema changes require forward Alembic migrations; releases without schema changes do not add empty migrations.

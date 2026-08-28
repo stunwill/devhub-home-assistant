@@ -14,15 +14,16 @@ from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from .assisted_requirements import ai_status, analyse_requirement
 from .database import Base, SessionLocal, engine, get_db
 from .github_service import GitHubService
 from .models import AcceptanceCriterion, AcceptanceTestResult, Attachment, Project, RegisterItem, Release, ReleaseItem, RoadmapItem, RoadmapPhase, RoadmapSnapshot
 from .prompt_builder import build_release_prompt
 from .reconciliation import compare_changelog, reconcile_release
 from .roadmap_parser import parse_roadmap
-from .schemas import ProjectCreate, ProjectDiscover, ProjectFromUrl, ProjectOut, RegisterItemCreate, RegisterItemOut, RegisterItemUpdate, ReleaseCreate, ReleaseOut, TestResultUpdate, TEST_STATUSES
+from .schemas import AssistedRequirementDraft, AssistedRequirementRequest, ProjectCreate, ProjectDiscover, ProjectFromUrl, ProjectOut, RegisterItemCreate, RegisterItemOut, RegisterItemUpdate, ReleaseCreate, ReleaseOut, TestResultUpdate, TEST_STATUSES
 
-APP_VERSION = "0.4.2"
+APP_VERSION = "0.5.0"
 DATA_DIR = Path(os.getenv("DEVHUB_DATA_DIR", "./data"))
 UPLOAD_DIR = DATA_DIR / "uploads"
 PROJECT_LOGO_DIR = DATA_DIR / "project-logos"
@@ -230,6 +231,21 @@ app = FastAPI(title="DevHub", version=APP_VERSION, lifespan=lifespan)
 
 @app.get("/api/health")
 def health(): return {"status": "ok", "version": APP_VERSION}
+
+@app.get("/api/assisted-requirements/status")
+def assisted_requirements_status(): return ai_status()
+
+@app.post("/api/assisted-requirements/analyse", response_model=AssistedRequirementDraft)
+async def assisted_requirements_analyse(payload: AssistedRequirementRequest, db: Session = Depends(get_db)):
+    project = project_or_404(db, payload.project_id)
+    try:
+        return await analyse_requirement(db, project, payload)
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc))
+    except ValueError as exc:
+        raise HTTPException(502, str(exc))
+    except Exception:
+        raise HTTPException(502, "Assisted requirement analysis failed")
 
 @app.get("/api/projects", response_model=list[ProjectOut])
 def projects(db: Session = Depends(get_db)): return list(db.scalars(select(Project).order_by(Project.name)))

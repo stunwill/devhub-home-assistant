@@ -79,6 +79,12 @@ Lifecycle completion delivered in v0.4.1:
 - API request coalescing for unchanged roadmap/changelog content where source SHAs can be reused.
 - Expanded deterministic parser, reconciliation, phase-selection and migration regression tests.
 
+Corrective lifecycle delivered in v0.4.2:
+
+- Restored Home Assistant ingress-safe production assets through relative Vite paths.
+- Updated Home Assistant app metadata to modern `app_config` mapping and current architecture declarations.
+- Added regression protection around ingress asset paths.
+
 Ongoing validation work:
 
 - Continue broadening representative parser fixtures as additional real-world roadmap and changelog structures are encountered.
@@ -86,10 +92,27 @@ Ongoing validation work:
 
 ## v0.5.x Assisted Requirements
 
-- AI-assisted analysis of feedback evidence.
-- Suggested defect/enhancement descriptions.
-- Suggested acceptance criteria and test instructions.
-- Duplicate and related-item detection.
+First Assisted Requirements capability delivered in v0.5.0:
+
+- Optional AI-assisted analysis of written feedback plus screenshot/photo evidence.
+- Structured requirement drafts covering title, type, description, actual/expected behaviour, priority, acceptance criteria and test instructions.
+- Explicit review/edit step before any Register item is created.
+- Editable and reorderable acceptance criteria.
+- Optional roadmap-phase suggestion using bounded current/next Roadmap Intelligence context.
+- Deterministic same-project duplicate and related-item candidate narrowing before AI analysis.
+- Multiple image and video evidence selection, with original evidence attached only after explicit Register creation.
+- Clear AI disabled, not-configured, failed and partial-evidence states while retaining the non-AI workflow.
+- Provider/service abstraction and Home Assistant configuration without exposing credentials to the frontend.
+- Validated structured model output and focused model context rather than whole roadmap/changelog/register dumps.
+- Mobile-responsive assisted review UI and explicit CI regression checks for ingress-safe frontend assets.
+
+Remaining v0.5.x opportunities:
+
+- Direct provider-supported video understanding rather than retaining video only as review evidence.
+- Richer evidence preprocessing where it materially improves reliability.
+- User-confirmed persisted `duplicate of` / `related to` relationships if advisory detection proves valuable in real usage.
+- More sophisticated local similarity ranking and confidence explanation based on representative Register data.
+- Additional AI providers where demand justifies them.
 
 ## v0.6.x Release Execution
 
