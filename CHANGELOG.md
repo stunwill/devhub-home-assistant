@@ -2,6 +2,39 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.4.1] - 2026-08-28
+
+### Added
+
+- User-controlled current and next roadmap phase confirmation/overrides, with automatic detection retained as the default.
+- Reversible **Ignore in DevHub planning** handling for parsed roadmap phases without modifying `ROADMAP.md`.
+- Deterministic roadmap reconciliation states, reasoning and read-only update previews.
+- Deterministic `CHANGELOG.md` version parsing and reconciliation for common semantic-version headings.
+- Release-to-roadmap-phase association and reconciliation state in release history.
+- Roadmap-aware Release Builder context with manual scope selection preserved.
+- Focused release prompts containing detected version source, roadmap phase context, reconciliation warnings and changelog state.
+- GitHub synchronisation diagnostics including commit/roadmap SHAs, parse state, version source, CI state, changelog state and last error.
+- GitHub API rate-limit telemetry and per-project retry/backoff state.
+- Forward Alembic migration for reconciliation metadata and release-roadmap associations.
+- Backend tests for changelog parsing, roadmap reconciliation, phase overrides, ignored phases and migration safety.
+
+### Changed
+
+- Roadmap refresh now coalesces content and metadata retrieval and reuses unchanged source SHAs.
+- Background GitHub synchronisation now backs off after failures while allowing other projects to continue refreshing.
+- Last-known-good project data remains visible during temporary GitHub failures.
+- Project Details now shows version source, CI check counts, changelog state and roadmap reconciliation.
+- Roadmap phase details now include linked register items and planned/completed releases.
+- Application, frontend and Home Assistant add-on version metadata bumped to 0.4.1.
+
+### Preserved
+
+- `ROADMAP.md` and `CHANGELOG.md` remain authoritative and are never automatically rewritten.
+- Repository URL onboarding, project artwork and Portfolio dashboard design.
+- GitHub release/tag fallback, PR retrieval and CI/check aggregation.
+- Structured and Raw Markdown roadmap views and roadmap caching.
+- `PYTHONPATH=/app`, `alembic upgrade head`, aarch64 image support and startup smoke testing.
+
 ## [0.4.0] - 2026-08-28
 
 ### Added
@@ -70,7 +103,7 @@ All notable changes to DevHub are documented here.
 - Responsive project-card dashboard showing current release, open PRs, last merged PR, CI state and sync age.
 - Project Details view with repository, PR, release and roadmap information.
 - Project logo/icon upload stored in persistent runtime storage.
-- Roadmap and changelog path detection during project onboarding.
+- Roadmap and changelog path detection during onboarding.
 - Manual all-project refresh plus periodic 15-minute refresh while DevHub is open.
 - Sync status/error tracking that preserves last known good GitHub data.
 - Alembic migration for GitHub synchronisation and project artwork metadata.
