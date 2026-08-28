@@ -11,6 +11,7 @@ class GitHubService:
     def __init__(self, token: str | None = None):
         self.token = token or os.getenv("DEVHUB_GITHUB_TOKEN", "")
         self.base = "https://api.github.com"
+        self.rate_limit = {"remaining": None, "limit": None, "reset_at": None}
 
     @property
     def headers(self):
@@ -27,9 +28,20 @@ class GitHubService:
             raise ValueError("Enter a GitHub repository URL such as https://github.com/owner/repository")
         return match.groups()
 
+    def _capture_rate_limit(self, response: httpx.Response):
+        remaining = response.headers.get("X-RateLimit-Remaining")
+        limit = response.headers.get("X-RateLimit-Limit")
+        reset = response.headers.get("X-RateLimit-Reset")
+        self.rate_limit = {
+            "remaining": int(remaining) if remaining and remaining.isdigit() else None,
+            "limit": int(limit) if limit and limit.isdigit() else None,
+            "reset_at": datetime.fromtimestamp(int(reset), tz=timezone.utc).replace(tzinfo=None) if reset and reset.isdigit() else None,
+        }
+
     async def _get(self, path: str):
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.get(f"{self.base}{path}", headers=self.headers)
+        self._capture_rate_limit(response)
         if response.status_code == 404:
             return None
         if response.status_code == 401:
@@ -51,36 +63,36 @@ class GitHubService:
     async def release_or_tag(self, owner: str, repo: str):
         release = await self.latest_release(owner, repo)
         if release:
-            return {
-                "version": release.get("tag_name"),
-                "url": release.get("html_url"),
-                "published_at": release.get("published_at") or release.get("created_at"),
-                "source": "GitHub Release",
-                "release": release,
-            }
+            return {"version": release.get("tag_name"), "url": release.get("html_url"), "published_at": release.get("published_at") or release.get("created_at"), "source": "GitHub Release", "release": release}
         for tag in await self.tags(owner, repo):
             name = tag.get("name") or ""
             if self.SEMVER_TAG_RE.match(name):
-                return {
-                    "version": name,
-                    "url": f"https://github.com/{owner}/{repo}/tree/{name}",
-                    "published_at": None,
-                    "source": "Git tag",
-                    "release": None,
-                }
+                return {"version": name, "url": f"https://github.com/{owner}/{repo}/tree/{name}", "published_at": None, "source": "Git tag", "release": None}
         return {"version": None, "url": None, "published_at": None, "source": "Unknown", "release": None}
 
+    async def file_data(self, owner: str, repo: str, path: str, ref: str):
+        return await self._get(f"/repos/{owner}/{repo}/contents/{path}?ref={ref}")
+
     async def file_text(self, owner: str, repo: str, path: str, ref: str):
-        data = await self._get(f"/repos/{owner}/{repo}/contents/{path}?ref={ref}")
+        data = await self.file_data(owner, repo, path, ref)
         if not data or data.get("encoding") != "base64" or "content" not in data:
             return None
         return base64.b64decode(data["content"]).decode("utf-8")
 
     async def file_metadata(self, owner: str, repo: str, path: str, ref: str):
-        data = await self._get(f"/repos/{owner}/{repo}/contents/{path}?ref={ref}")
+        data = await self.file_data(owner, repo, path, ref)
         if not data:
             return None
         return {"sha": data.get("sha"), "path": data.get("path"), "html_url": data.get("html_url")}
+
+    async def file_text_and_metadata(self, owner: str, repo: str, path: str, ref: str):
+        data = await self.file_data(owner, repo, path, ref)
+        if not data:
+            return None, None
+        text = None
+        if data.get("encoding") == "base64" and "content" in data:
+            text = base64.b64decode(data["content"]).decode("utf-8")
+        return text, {"sha": data.get("sha"), "path": data.get("path"), "html_url": data.get("html_url")}
 
     async def open_pull_requests(self, owner: str, repo: str):
         return await self._get(f"/repos/{owner}/{repo}/pulls?state=open&sort=updated&direction=desc&per_page=100") or []
@@ -115,19 +127,11 @@ class GitHubService:
         failing = any(c in {"failure", "cancelled", "timed_out", "action_required", "startup_failure"} for c in conclusions)
         passing = bool(checks) and all(c in {"success", "neutral", "skipped"} for c in conclusions) and not running
         combined = status_data.get("state", "unknown")
-        if failing or combined in {"failure", "error"}:
-            state = "failure"
-        elif running or combined == "pending":
-            state = "pending"
-        elif passing or combined == "success":
-            state = "success"
-        else:
-            state = "unknown"
-        return {
-            "state": state,
-            "statuses": status_data.get("statuses", []),
-            "checks": [{"name": c.get("name"), "status": c.get("status"), "conclusion": c.get("conclusion"), "url": c.get("html_url")} for c in checks],
-        }
+        if failing or combined in {"failure", "error"}: state = "failure"
+        elif running or combined == "pending": state = "pending"
+        elif passing or combined == "success": state = "success"
+        else: state = "unknown"
+        return {"state": state, "statuses": status_data.get("statuses", []), "checks": [{"name": c.get("name"), "status": c.get("status"), "conclusion": c.get("conclusion"), "url": c.get("html_url")} for c in checks]}
 
     async def detect_path(self, owner: str, repo: str, ref: str, candidates: list[str]):
         for path in candidates:
@@ -151,23 +155,7 @@ class GitHubService:
         status = await self.combined_status(owner, repo, commit.get("sha") if commit else None)
         roadmap = await self.detect_path(owner, repo, branch, ["ROADMAP.md", "docs/ROADMAP.md", "Roadmap.md", "docs/roadmap.md"])
         changelog = await self.detect_path(owner, repo, branch, ["CHANGELOG.md", "docs/CHANGELOG.md", "Changelog.md", "docs/changelog.md"])
-        return {
-            "owner": owner,
-            "repo": repo,
-            "repository_url": metadata.get("html_url") or repository_url,
-            "name": metadata.get("name") or repo,
-            "description": metadata.get("description"),
-            "visibility": metadata.get("visibility") or ("private" if metadata.get("private") else "public"),
-            "default_branch": branch,
-            "latest_release": version_info.get("release"),
-            "version": version_info,
-            "open_prs": prs,
-            "last_merged_pr": merged,
-            "latest_commit": commit,
-            "ci": status,
-            "roadmap_path": roadmap,
-            "changelog_path": changelog,
-        }
+        return {"owner": owner, "repo": repo, "repository_url": metadata.get("html_url") or repository_url, "name": metadata.get("name") or repo, "description": metadata.get("description"), "visibility": metadata.get("visibility") or ("private" if metadata.get("private") else "public"), "default_branch": branch, "latest_release": version_info.get("release"), "version": version_info, "open_prs": prs, "last_merged_pr": merged, "latest_commit": commit, "ci": status, "roadmap_path": roadmap, "changelog_path": changelog, "rate_limit": self.rate_limit}
 
     @staticmethod
     def parse_github_datetime(value: str | None):
