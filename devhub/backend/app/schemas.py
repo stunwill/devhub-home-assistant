@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 ITEM_TYPES = ["Defect", "Enhancement", "UX Improvement", "Technical Debt", "Performance", "Security", "Documentation"]
 ITEM_STATUSES = ["New", "Reviewed", "Approved", "Planned", "In Development", "Ready for Test", "Passed", "Failed", "Released", "Deferred", "Rejected"]
@@ -136,61 +136,3 @@ class ReleaseOut(BaseModel):
 class TestResultUpdate(BaseModel):
     status: str
     notes: str = ""
-
-class AssistedAttachment(BaseModel):
-    name: str = Field(min_length=1, max_length=255)
-    content_type: str = Field(min_length=1, max_length=120)
-    data_base64: str = Field(min_length=1, max_length=18_000_000)
-
-class AssistedRequirementRequest(BaseModel):
-    project_id: int
-    feedback: str = Field(min_length=1, max_length=8000)
-    attachments: list[AssistedAttachment] = Field(default_factory=list, max_length=6)
-
-class CandidateItem(BaseModel):
-    id: int
-    item_key: str
-    title: str
-    item_type: str
-    status: str
-    priority: str
-    roadmap_phase_id: int | None = None
-    score: float = 0
-
-class AssistedRequirementDraft(BaseModel):
-    title: str = Field(min_length=1, max_length=240)
-    item_type: str
-    description: str = Field(default="", max_length=12000)
-    actual_behaviour: str = Field(default="", max_length=8000)
-    expected_behaviour: str = Field(default="", max_length=8000)
-    priority: str = "Medium"
-    acceptance_criteria: list[str] = Field(default_factory=list, max_length=20)
-    testing_instructions: str = Field(default="", max_length=12000)
-    suggested_roadmap_phase_id: int | None = None
-    duplicate_candidates: list[CandidateItem] = Field(default_factory=list, max_length=8)
-    related_candidates: list[CandidateItem] = Field(default_factory=list, max_length=8)
-    warnings: list[str] = Field(default_factory=list, max_length=20)
-
-    @field_validator("item_type")
-    @classmethod
-    def valid_item_type(cls, value: str) -> str:
-        if value not in ITEM_TYPES:
-            raise ValueError("Invalid item type")
-        return value
-
-    @field_validator("priority")
-    @classmethod
-    def valid_priority(cls, value: str) -> str:
-        if value not in PRIORITIES:
-            raise ValueError("Invalid priority")
-        return value
-
-    @field_validator("acceptance_criteria")
-    @classmethod
-    def clean_criteria(cls, value: list[str]) -> list[str]:
-        result = []
-        for item in value:
-            text = str(item).strip()
-            if text:
-                result.append(text[:1000])
-        return result[:20]
