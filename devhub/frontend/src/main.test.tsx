@@ -11,13 +11,19 @@ globalThis.fetch = vi.fn(async (url: RequestInfo | URL) => ({
 vi.mock('./main.tsx', () => ({}));
 
 describe('DevHub frontend contract', () => {
-  it('keeps key product wording available to the UI source', async () => {
+  it('keeps roadmap intelligence and reconciliation wording available', async () => {
     const source = await import('./uiContract');
-    render(<div>{source.navigation.join(' ')} {source.feedbackLabel} {source.roadmapIntelligenceLabels.join(' ')}</div>);
+    render(<div>{source.navigation.join(' ')} {source.feedbackLabel} {source.roadmapIntelligenceLabels.join(' ')} {source.reconciliationLabels.join(' ')}</div>);
     expect(screen.getByText(/Portfolio/)).toBeInTheDocument();
     expect(screen.getByText(/Feedback/)).toBeInTheDocument();
     expect(screen.getByText(/Roadmap Intelligence/)).toBeInTheDocument();
     expect(screen.getByText(/Raw Markdown/)).toBeInTheDocument();
-    expect(screen.getByText(/Reparse Roadmap/)).toBeInTheDocument();
+    expect(screen.getByText(/Use automatic detection/)).toBeInTheDocument();
+    expect(screen.getByText(/User confirmed/)).toBeInTheDocument();
+    expect(screen.getByText(/Ignore in DevHub planning/)).toBeInTheDocument();
+    expect(screen.getByText(/Roadmap reconciliation/)).toBeInTheDocument();
+    expect(screen.getByText(/Suggested roadmap reconciliation/)).toBeInTheDocument();
+    expect(screen.getByText(/GitHub synchronisation diagnostics/)).toBeInTheDocument();
+    expect(screen.getByText(/GitHub rate limit/)).toBeInTheDocument();
   });
 });
