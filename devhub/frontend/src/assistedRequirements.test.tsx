@@ -1,12 +1,16 @@
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
-import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {cleanup, fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {AssistedFeedbackModal} from './assistedRequirements';
 
 const projects=[{id:1,name:'DevHub'}];
 
-afterEach(()=>vi.restoreAllMocks());
+afterEach(()=>{
+ cleanup();
+ vi.restoreAllMocks();
+ vi.unstubAllGlobals();
+});
 
 describe('AssistedFeedbackModal',()=>{
  it('keeps the non-AI path available when AI is not configured',async()=>{
@@ -31,8 +35,9 @@ describe('AssistedFeedbackModal',()=>{
   vi.stubGlobal('fetch',fetchMock);
   const saved=vi.fn();
   render(<AssistedFeedbackModal projects={projects} close={()=>{}} saved={saved}/>);
+  const feedback=screen.getByPlaceholderText(/Describe what happened/);
+  fireEvent.change(feedback,{target:{value:'The mobile page scrolls sideways'}});
   await waitFor(()=>expect(screen.getByRole('button',{name:'Analyse & Draft Requirement'})).not.toBeDisabled());
-  fireEvent.change(screen.getByPlaceholderText(/Describe what happened/),{target:{value:'The mobile page scrolls sideways'}});
   fireEvent.click(screen.getByRole('button',{name:'Analyse & Draft Requirement'}));
   await screen.findByDisplayValue('Fix mobile overflow');
   expect(screen.getByText('Possible duplicate')).toBeInTheDocument();
