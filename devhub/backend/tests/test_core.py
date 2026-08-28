@@ -12,7 +12,7 @@ def setup_module(): Base.metadata.drop_all(bind=engine); Base.metadata.create_al
 def teardown_module(): Base.metadata.drop_all(bind=engine)
 
 def test_health():
-    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.4.2'
+    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.5.0'
 
 def test_sync_summary_empty_portfolio():
     r=client.get('/api/projects/sync-summary')
@@ -64,6 +64,22 @@ def test_sync_diagnostics_contract():
     assert len(rows.json())==1
     assert 'rate_limit' in rows.json()[0]
     assert 'roadmap_parse_state' in rows.json()[0]
+
+def test_assisted_requirements_status_disabled_by_default():
+    os.environ.pop('DEVHUB_AI_API_KEY',None)
+    os.environ['DEVHUB_AI_ENABLED']='false'
+    r=client.get('/api/assisted-requirements/status')
+    assert r.status_code==200
+    assert r.json()['enabled'] is False
+    assert r.json()['configured'] is False
+
+def test_assisted_analysis_does_not_create_register_item_when_disabled():
+    project=client.get('/api/projects').json()[0]
+    before=len(client.get('/api/register').json())
+    r=client.post('/api/assisted-requirements/analyse',json={"project_id":project['id'],"feedback":"The mobile page scrolls sideways","attachments":[]})
+    assert r.status_code==503
+    after=len(client.get('/api/register').json())
+    assert before==after
 
 def test_attachment_validation():
     item=client.get('/api/register').json()[0]
