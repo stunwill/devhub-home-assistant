@@ -2,6 +2,38 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.4.0] - 2026-08-28
+
+### Added
+
+- Deterministic Roadmap Intelligence parser for common Markdown version, phase, milestone and Future structures.
+- Persistent roadmap snapshots, structured phases and roadmap items.
+- Structured Roadmap view with Raw Markdown retained as the authoritative source view.
+- Current and next roadmap phase resolution with manual reparse support.
+- Register item association with roadmap phases and roadmap-aware filtering.
+- Roadmap summary in Project Details.
+- Roadmap-aware Next Release Builder suggestions.
+- Structured roadmap context in generated release prompts.
+- GitHub Release to Git tag version fallback with version-source tracking.
+- Richer CI aggregation using GitHub check runs plus combined commit status.
+- Alembic migration for Roadmap Intelligence data.
+
+### Changed
+
+- GitHub synchronisation now reuses roadmap snapshots when the source roadmap SHA has not changed.
+- Project metadata records whether the current version came from a GitHub Release, Git tag or is unknown.
+- Release planning now surfaces the next roadmap phase without automatically selecting scope.
+- Application, frontend and Home Assistant add-on version metadata bumped to 0.4.0.
+
+### Preserved
+
+- v0.3.0 Portfolio dashboard and responsive card layout.
+- Repository URL onboarding and project artwork.
+- Backend background GitHub synchronisation.
+- Last-known-good GitHub data on refresh failure.
+- PR #4 `PYTHONPATH=/app` startup correction.
+- Raspberry Pi 5 / aarch64 image build and startup smoke testing.
+
 ## [0.3.0] - 2026-08-27
 
 ### Added
