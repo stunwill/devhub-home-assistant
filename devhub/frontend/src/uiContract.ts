@@ -1,3 +1,4 @@
 export const navigation=['Portfolio','Projects','Register','Releases','Settings'];
 export const feedbackLabel='+ Feedback';
-export const roadmapIntelligenceLabels=['Roadmap Intelligence','Structured','Raw Markdown','Reparse Roadmap','Current phase','Next phase'];
+export const roadmapIntelligenceLabels=['Roadmap Intelligence','Structured','Raw Markdown','Reparse Roadmap','Current phase','Next phase','Use automatic detection','User confirmed','User override','Ignore in DevHub planning'];
+export const reconciliationLabels=['Roadmap reconciliation','Reconciliation required','Suggested roadmap reconciliation','CHANGELOG.md','GitHub synchronisation diagnostics','GitHub rate limit'];
