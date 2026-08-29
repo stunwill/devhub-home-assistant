@@ -60,14 +60,42 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
-      - name: Validate release changelogs
+      - name: Validate release metadata consistency
         run: |
-          grep -q '^## \[0.5.3\]' CHANGELOG.md
-          test -s devhub/CHANGELOG.md
-          grep -q '^## 0.5.3$' devhub/CHANGELOG.md
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+
+          config = Path('devhub/config.yaml').read_text()
+          match = re.search(r'^version:\s*"([^"]+)"', config, re.M)
+          if not match:
+              raise SystemExit('Unable to read version from devhub/config.yaml')
+          version = match.group(1)
+
+          package = json.loads(Path('devhub/frontend/package.json').read_text())
+          if package.get('version') != version:
+              raise SystemExit(f'Frontend version {package.get("version")} != Home Assistant version {version}')
+
+          backend = Path('devhub/backend/app/main.py').read_text()
+          backend_match = re.search(r'^APP_VERSION\s*=\s*"([^"]+)"', backend, re.M)
+          if not backend_match or backend_match.group(1) != version:
+              raise SystemExit('Backend APP_VERSION does not match Home Assistant version')
+
+          root_changelog = Path('CHANGELOG.md').read_text()
+          if not re.search(rf'^## \[{re.escape(version)}\](?:\s|$)', root_changelog, re.M):
+              raise SystemExit(f'Root CHANGELOG.md does not contain release {version}')
+
+          ha_changelog = Path('devhub/CHANGELOG.md').read_text()
+          if not re.search(rf'^## {re.escape(version)}$', ha_changelog, re.M):
+              raise SystemExit(f'devhub/CHANGELOG.md does not contain release {version}')
+
+          if not Path('ROADMAP.md').is_file():
+              raise SystemExit('ROADMAP.md is required')
+
+          print(f'Release metadata consistent at {version}')
+          PY
       - name: Validate Home Assistant app manifest
         run: |
-          grep -q 'version: "0.5.3"' devhub/config.yaml
           grep -q '  - app_config:rw' devhub/config.yaml
           ! grep -q 'addon_config' devhub/config.yaml
           ! grep -q 'armv7' devhub/config.yaml
@@ -106,10 +134,17 @@ jobs:
             devhub-ci:aarch64
           cleanup() { docker logs devhub-smoke || true; docker rm -f devhub-smoke >/dev/null 2>&1 || true; }
           trap cleanup EXIT
+          VERSION=$(python - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path('devhub/config.yaml').read_text()
+          print(re.search(r'^version:\s*"([^"]+)"', text, re.M).group(1))
+          PY
+          )
           for i in $(seq 1 45); do
             if curl --fail --silent http://127.0.0.1:18099/api/health >/tmp/devhub-health.json; then
               cat /tmp/devhub-health.json
-              grep -q '"version":"0.5.3"' /tmp/devhub-health.json
+              grep -q '"version":"'"$VERSION"'"' /tmp/devhub-health.json
               exit 0
             fi
             if ! docker ps --format '{{.Names}}' | grep -q '^devhub-smoke$'; then
