@@ -2,6 +2,40 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.5.1] - 2026-08-29
+
+### Added
+
+- Evidence Intelligence for Assisted Requirements, including bounded local video preprocessing and representative frame extraction.
+- FFmpeg/ffprobe support in the Home Assistant image for screen-recording metadata inspection and frame extraction.
+- Structured evidence summaries, observations, timestamps, confidence labels and ambiguity warnings kept separate from the editable requirement draft.
+- Provider capability reporting for text, image, multiple-image, direct-video, frame-based video and structured-output support without exposing credentials.
+- Bounded video limits for duration, payload size, image dimensions and extracted frame count.
+- Evidence-aware requirement prompting that explicitly treats visible screenshot/video text as untrusted source material and avoids unsupported root-cause claims.
+- More explainable deterministic duplicate/related-item ranking with weighted title/description/behaviour matching and human-readable match reasons.
+- Frontend Evidence analysis review section and clearer processing states for evidence preparation and analysis.
+- ARM64 CI smoke checks confirming ffmpeg/ffprobe are present and can generate, inspect and extract a frame from a tiny video fixture.
+
+### Changed
+
+- Video evidence is now analysed through bounded locally extracted frames when the configured provider supports images. Direct native provider video is not claimed by the current OpenAI/OpenAI-compatible path.
+- Assisted Requirements status now exposes non-secret provider capabilities.
+- The analysis request continues to remain synchronous because the bounded 120-second/6-frame pipeline fits the existing Home Assistant ingress request model without adding job infrastructure.
+- Application, frontend and Home Assistant app version metadata updated to 0.5.1.
+
+### Security and control
+
+- Original evidence remains authoritative and is uploaded to the Register item only after explicit user confirmation.
+- Extracted frames are transient and created only in temporary directories; they are not persisted under `/config`.
+- Model output remains validated by Pydantic and cannot execute commands, perform GitHub writes, change roadmap state or create Register items.
+- Video payloads are size/duration/frame bounded and malformed media returns explicit warnings rather than crashing analysis.
+
+### Not included
+
+- Persisted `duplicate of` / `related to` relationship records remain future v0.5.x work.
+- Native provider video input remains disabled until a documented provider path justifies it.
+- No database migration is required for this release.
+
 ## [0.5.0] - 2026-08-28
 
 ### Added
@@ -55,9 +89,9 @@ All notable changes to DevHub are documented here.
 ### Added
 
 - User-controlled current and next roadmap phase confirmation/overrides, with automatic detection retained as the default.
-- Reversible **Ignore in DevHub planning** handling for parsed roadmap phases without modifying `ROADMAP.md`.
+- Reversible ignored roadmap phases that remain parsed but are excluded from planning selectors and automatic current/next phase resolution.
 - Deterministic roadmap reconciliation states, reasoning and read-only update previews.
-- Deterministic `CHANGELOG.md` version parsing and reconciliation for common semantic-version headings.
+- Deterministic `CHANGELOG.md` semantic-version parsing and reconciliation for common semantic-version headings.
 - Release-to-roadmap-phase association and reconciliation state in release history.
 - Roadmap-aware Release Builder context with manual scope selection preserved.
 - Focused release prompts containing detected version source, roadmap phase context, reconciliation warnings and changelog state.
@@ -82,12 +116,3 @@ All notable changes to DevHub are documented here.
 - GitHub release/tag fallback, PR retrieval and CI/check aggregation.
 - Structured and Raw Markdown roadmap views and roadmap caching.
 - `PYTHONPATH=/app`, `alembic upgrade head`, aarch64 image support and startup smoke testing.
-
-## [0.4.0] - 2026-08-28
-
-### Added
-
-- Deterministic Roadmap Intelligence parser for common Markdown version, phase, milestone and Future structures.
-- Persistent roadmap snapshots, structured phases and roadmap items.
-- Structured Roadmap view with Raw Markdown retained as the authoritative source view.
-- Current and next roadmap phase resolution with manual reparse support.
