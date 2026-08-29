@@ -2,6 +2,27 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.5.2] - 2026-08-29
+
+### Fixed
+
+- Completed the Home Assistant ingress API-routing correction so frontend `/api/...` requests remain inside the active DevHub ingress path instead of being handled by Home Assistant and returning `404: Not Found`.
+- Restored project onboarding through ingress, including the reported `https://github.com/stunwill/fynvo-home-assistant` case.
+- Restored loading of configured projects and other API-backed portfolio data through Home Assistant ingress.
+- Preserved ingress-safe handling for project logo API URLs and other frontend requests covered by the shared routing bootstrap.
+
+### Regression protection
+
+- Retained the existing production-asset ingress check that rejects root-absolute `/assets/...` paths.
+- Retained and explicitly validated regression coverage for `/api/projects` and `/api/projects/from-url` under `/api/hassio_ingress/<token>/`.
+- Home Assistant manifest CI now verifies the 0.5.2 release version, modern `app_config` mapping, aarch64/amd64 support and the absence of deprecated `armv7`/`addon_config` declarations.
+- ARM64 startup smoke testing now requires `/api/health` to report version 0.5.2.
+
+### Release correction
+
+- Application, frontend and Home Assistant app version metadata updated consistently to 0.5.2 so Home Assistant can recognise and install the corrected image.
+- No database migration is required for this corrective release.
+
 ## [0.5.1] - 2026-08-29
 
 ### Added

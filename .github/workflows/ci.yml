@@ -40,6 +40,11 @@ jobs:
             exit 1
           fi
           grep -E 'src="\./assets/|href="\./assets/' dist/index.html
+      - name: Verify ingress API routing regression coverage
+        run: |
+          grep -q "'/api/projects/from-url'" src/ingress.test.ts
+          grep -q "'/api/projects'" src/ingress.test.ts
+          grep -q '/api/hassio_ingress/abc123/api/projects/from-url' src/ingress.test.ts
 
   addon-aarch64:
     runs-on: ubuntu-latest
@@ -49,10 +54,12 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: Validate Home Assistant app manifest
         run: |
+          grep -q 'version: "0.5.2"' devhub/config.yaml
           grep -q '  - app_config:rw' devhub/config.yaml
           ! grep -q 'addon_config' devhub/config.yaml
           ! grep -q 'armv7' devhub/config.yaml
           grep -q '  - aarch64' devhub/config.yaml
+          grep -q '  - amd64' devhub/config.yaml
       - name: Build Home Assistant aarch64 add-on image
         uses: docker/build-push-action@v6
         with:
@@ -89,7 +96,7 @@ jobs:
           for i in $(seq 1 45); do
             if curl --fail --silent http://127.0.0.1:18099/api/health >/tmp/devhub-health.json; then
               cat /tmp/devhub-health.json
-              grep -q '"version":"0.5.1"' /tmp/devhub-health.json
+              grep -q '"version":"0.5.2"' /tmp/devhub-health.json
               exit 0
             fi
             if ! docker ps --format '{{.Names}}' | grep -q '^devhub-smoke$'; then

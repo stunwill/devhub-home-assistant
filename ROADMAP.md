@@ -118,6 +118,14 @@ Evidence Intelligence delivered in v0.5.1:
 - Improved deterministic duplicate/related-item ranking with weighted structured fields and user-visible match explanations.
 - ARM64 production-image validation for FFmpeg/ffprobe and a tiny end-to-end frame extraction smoke test.
 
+Corrective ingress release delivered in v0.5.2:
+
+- Completed the Home Assistant ingress API-routing correction introduced after v0.5.1 so frontend `/api/...` requests remain inside the active DevHub ingress path.
+- Restored GitHub project onboarding and configured-project loading through ingress, including the reported Fynvo onboarding case.
+- Preserved ingress-safe project-logo/API resource handling.
+- Added explicit CI regression protection for both static asset paths and API routing under `/api/hassio_ingress/<token>/`.
+- Bumped backend, frontend and Home Assistant app version metadata together so Home Assistant can recognise and install the corrected image.
+
 Remaining v0.5.x opportunities:
 
 - User-confirmed persisted `duplicate of` / `related to` relationships if advisory detection proves valuable in real usage.
