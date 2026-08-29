@@ -142,7 +142,7 @@ class AssistedAttachment(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     content_type: str = Field(min_length=1, max_length=120)
     size_bytes: int = Field(default=0, ge=0, le=100 * 1024 * 1024)
-    data_base64: str = Field(default="", max_length=120_000_000)
+    data_base64: str = Field(default="", max_length=72_000_000)
 
 class AssistedRequirementRequest(BaseModel):
     project_id: int
