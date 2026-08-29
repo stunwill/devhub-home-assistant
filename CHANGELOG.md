@@ -2,6 +2,38 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.5.8] - 2026-08-30
+
+### Fixed
+
+- Corrected automatic roadmap Next Phase selection so stale historical `In Progress` phases cannot become the lifecycle baseline when the detected release is newer.
+- Automatic next-phase detection now uses the detected release as the minimum semantic lifecycle position, while preserving explicit user overrides and Future-bucket fallback.
+- Corrected CI aggregation so completed successful check-runs are no longer left as Pending solely because a stale combined commit status still reports pending.
+- CI cache entries are now associated with the latest commit SHA, and the Portfolio treats mismatched cached CI as stale rather than authoritative.
+- Manual Portfolio refresh now waits for refreshed project and roadmap intelligence data, surfaces partial failures, and no longer completes visually before the displayed data has been replaced.
+
+### Project identity and Portfolio UX
+
+- Added editable friendly project display names while keeping GitHub owner/repository identity unchanged.
+- New projects default to a human-readable name derived from the repository slug when a custom display name is not supplied.
+- Project Details now provides an Edit name workflow and additional sync/CI commit diagnostics.
+- A single amber `OPEN PR` chip now links directly to its GitHub pull request; multiple-PR counts remain non-arbitrary summary chips with individual links in expanded details.
+- Replaced the refresh `…` state with a rotating refresh indicator plus explicit `Refreshing projects`, `Updated just now`, failure and partial-failure feedback.
+
+### Regression protection
+
+- Added roadmap lifecycle coverage for stale historical In Progress phases against newer detected releases.
+- Added CI aggregation tests for completed success, in-progress, failed and no-CI states.
+- Added project rename regression coverage proving repository identity is unchanged.
+- Extended frontend and CI safeguards for project editing, direct single-PR links, refresh feedback and commit-associated CI state.
+- Preserved ingress routing, compact Portfolio cards, mobile hamburger navigation, release-version evidence, Evidence Intelligence and aarch64 startup protections.
+
+### Release scope
+
+- Application, frontend and Home Assistant app version metadata updated consistently to 0.5.8.
+- No database migration is required because friendly display names reuse the existing `Project.name` field.
+- No Release Execution functionality is included.
+
 ## [0.5.7] - 2026-08-30
 
 ### Fixed

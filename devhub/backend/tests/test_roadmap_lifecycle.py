@@ -48,6 +48,11 @@ def test_version_band_contains_current_release_and_progresses_to_next_band():
     assert _choose_current_next(project('v0.5.4'),phases)==(2,3)
 
 
+def test_stale_in_progress_historical_phase_cannot_drive_next_phase():
+    phases=[phase(1,0,'v0.2.0','Old in progress','In Progress'),phase(2,1,'v0.5.x','Current line'),phase(3,2,'v0.6.x','Next line','Planned')]
+    assert _choose_current_next(project('v0.5.7'),phases)==(2,3)
+
+
 def test_current_phase_override():
     phases=[phase(1,0,'v0.35.0','Current'),phase(2,1,'v0.36.0','Next','Planned')]
     assert _choose_current_next(project(current=2,current_override=True),phases)[0]==2

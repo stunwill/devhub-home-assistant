@@ -21,9 +21,9 @@ from .models import AcceptanceCriterion, AcceptanceTestResult, Attachment, Proje
 from .prompt_builder import build_release_prompt
 from .reconciliation import compare_changelog, reconcile_release
 from .roadmap_parser import lifecycle_status, parse_roadmap, semantic_version, version_contains, version_order_key
-from .schemas import AssistedRequirementDraft, AssistedRequirementRequest, ProjectCreate, ProjectDiscover, ProjectFromUrl, ProjectOut, RegisterItemCreate, RegisterItemOut, RegisterItemUpdate, ReleaseCreate, ReleaseOut, TestResultUpdate, TEST_STATUSES
+from .schemas import AssistedRequirementDraft, AssistedRequirementRequest, ProjectCreate, ProjectDiscover, ProjectFromUrl, ProjectOut, ProjectUpdate, RegisterItemCreate, RegisterItemOut, RegisterItemUpdate, ReleaseCreate, ReleaseOut, TestResultUpdate, TEST_STATUSES
 
-APP_VERSION = "0.5.7"
+APP_VERSION = "0.5.8"
 DATA_DIR = Path(os.getenv("DEVHUB_DATA_DIR", "./data"))
 UPLOAD_DIR = DATA_DIR / "uploads"
 PROJECT_LOGO_DIR = DATA_DIR / "project-logos"
@@ -82,6 +82,11 @@ def default_code(repo: str) -> str:
     return "".join(p[0] for p in parts)[:12].upper()
 
 
+def friendly_project_name(repo: str) -> str:
+    base = re.sub(r"-home-assistant$", "", repo, flags=re.I).strip("-_ ") or repo
+    return " ".join(part[:1].upper() + part[1:] for part in re.split(r"[-_]+", base) if part)
+
+
 def open_pr_summary(prs: list[dict]) -> list[dict]:
     return [{"number": p.get("number"), "title": p.get("title"), "url": p.get("html_url"), "created_at": p.get("created_at"), "updated_at": p.get("updated_at"), "draft": bool(p.get("draft")), "head": (p.get("head") or {}).get("ref")} for p in prs]
 
@@ -112,28 +117,31 @@ def _choose_current_next(project: Project, phases: list[RoadmapPhase]) -> tuple[
     if not active:
         return None, future_bucket.id if future_bucket else None
 
+    detected = semantic_version(project.latest_version)
     if project.roadmap_current_override and project.roadmap_current_phase_id and any(p.id == project.roadmap_current_phase_id for p in selectable):
         current = next(p for p in selectable if p.id == project.roadmap_current_phase_id)
     else:
-        detected = semantic_version(project.latest_version)
         exact_or_band = next((p for p in active if detected and version_contains(p.version, project.latest_version)), None)
         if exact_or_band:
             current = exact_or_band
         else:
-            current = next((p for p in active if p.status == "In Progress"), None)
+            current = next((p for p in active if p.status == "In Progress" and (not detected or not version_order_key(p.version) or version_order_key(p.version) <= detected)), None)
             if not current and detected:
                 historical = [(version_order_key(p.version), p) for p in active if version_order_key(p.version) and version_order_key(p.version) <= detected]
                 current = max(historical, key=lambda pair: pair[0])[1] if historical else None
-            current = current or next((p for p in active if p.status == "Unknown"), active[-1])
+            current = current or next((p for p in active if p.status == "Unknown" and not detected), active[-1] if not detected else None)
 
     if project.roadmap_next_override and project.roadmap_next_phase_id and any(p.id == project.roadmap_next_phase_id for p in selectable):
         nxt = next(p for p in selectable if p.id == project.roadmap_next_phase_id)
     else:
-        current_key = version_order_key(current.version) if current and current.phase_type != "Future" else semantic_version(project.latest_version)
-        if current and version_contains(current.version, project.latest_version):
-            current_key = semantic_version(project.latest_version) or current_key
+        baseline = detected
+        current_key = version_order_key(current.version) if current and current.phase_type != "Future" else None
+        if current_key and (not baseline or current_key > baseline):
+            baseline = current_key
         candidates = []
-        if current_key:
+        if baseline:
+            candidates = [(version_order_key(p.version), p) for p in active if version_order_key(p.version) and version_order_key(p.version) > baseline]
+        elif current_key:
             candidates = [(version_order_key(p.version), p) for p in active if version_order_key(p.version) and version_order_key(p.version) > current_key]
         nxt = min(candidates, key=lambda pair: pair[0])[1] if candidates else future_bucket
     return current.id if current else None, nxt.id if nxt else None
@@ -215,7 +223,9 @@ async def sync_project_record(p: Project, db: Session):
         if version.get("version"):
             p.latest_version = version.get("version"); p.latest_release_url = version.get("url"); p.latest_release_at = gh.parse_github_datetime(version.get("published_at"))
         p.github_rate_limit_remaining = rate.get("remaining"); p.github_rate_limit_limit = rate.get("limit"); p.github_rate_limit_reset_at = rate.get("reset_at")
-        p.github_cache_json = json.dumps({"open_pr_count": len(data.get("open_prs") or []), "open_prs": open_pr_summary(data.get("open_prs") or []), "last_merged_pr": data.get("last_merged_pr"), "latest_commit": commit, "ci": data.get("ci"), "version_source": version.get("source", "Unknown"), "version_evidence": version.get("evidence") or [], "rate_limit": {"remaining": p.github_rate_limit_remaining, "limit": p.github_rate_limit_limit, "reset_at": iso_utc(p.github_rate_limit_reset_at)}})
+        ci = dict(data.get("ci") or {})
+        ci["commit_sha"] = commit.get("sha") if commit else None
+        p.github_cache_json = json.dumps({"open_pr_count": len(data.get("open_prs") or []), "open_prs": open_pr_summary(data.get("open_prs") or []), "last_merged_pr": data.get("last_merged_pr"), "latest_commit": commit, "ci": ci, "version_source": version.get("source", "Unknown"), "version_evidence": version.get("evidence") or [], "rate_limit": {"remaining": p.github_rate_limit_remaining, "limit": p.github_rate_limit_limit, "reset_at": iso_utc(p.github_rate_limit_reset_at)}})
         p.github_refreshed_at = utcnow_naive(); p.github_sync_status = "Synced"; p.github_sync_error = None; p.github_failure_count = 0; p.github_backoff_until = None
         db.commit(); db.refresh(p)
         try: await sync_roadmap_record(p, db, force=False)
@@ -297,7 +307,7 @@ async def create_project_from_url(payload: ProjectFromUrl, db: Session = Depends
     if db.scalar(select(Project).where(Project.github_owner == data["owner"], Project.github_repo == data["repo"])): raise HTTPException(409, "This GitHub repository is already configured")
     code = (payload.code or default_code(data["repo"])).upper()
     if db.scalar(select(Project).where(Project.code == code)): code = f"{code[:9]}{uuid.uuid4().hex[:3].upper()}"
-    p = Project(name=payload.name or data["name"], code=code, github_owner=data["owner"], github_repo=data["repo"], repository_url=data["repository_url"], repository_description=data.get("description"), repository_visibility=data.get("visibility"), default_branch=data.get("default_branch") or "main", roadmap_path=data.get("roadmap_path") or "ROADMAP.md", changelog_path=data.get("changelog_path") or "CHANGELOG.md", active=True)
+    p = Project(name=(payload.name or friendly_project_name(data["repo"])).strip(), code=code, github_owner=data["owner"], github_repo=data["repo"], repository_url=data["repository_url"], repository_description=data.get("description"), repository_visibility=data.get("visibility"), default_branch=data.get("default_branch") or "main", roadmap_path=data.get("roadmap_path") or "ROADMAP.md", changelog_path=data.get("changelog_path") or "CHANGELOG.md", active=True)
     db.add(p); db.commit(); db.refresh(p)
     try: await sync_project_record(p, db)
     except Exception: pass
@@ -306,6 +316,17 @@ async def create_project_from_url(payload: ProjectFromUrl, db: Session = Depends
 @app.post("/api/projects", response_model=ProjectOut, status_code=201)
 def create_project(payload: ProjectCreate, db: Session = Depends(get_db)):
     p = Project(**payload.model_dump()); db.add(p); db.commit(); db.refresh(p); return p
+
+@app.put("/api/projects/{project_id}", response_model=ProjectOut)
+def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depends(get_db)):
+    p = project_or_404(db, project_id)
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        if key == "name" and value is not None:
+            value = value.strip()
+            if not value:
+                raise HTTPException(422, "Display name is required")
+        setattr(p, key, value)
+    db.commit(); db.refresh(p); return p
 
 @app.post("/api/projects/{project_id}/refresh")
 async def refresh_project(project_id: int, db: Session = Depends(get_db)):
@@ -331,7 +352,8 @@ def sync_diagnostics(db: Session = Depends(get_db)):
     for p in db.scalars(select(Project).order_by(Project.name)):
         latest=db.scalar(select(RoadmapSnapshot).where(RoadmapSnapshot.project_id==p.id).order_by(RoadmapSnapshot.id.desc()))
         cache=json.loads(p.github_cache_json or "{}")
-        rows.append({"project_id":p.id,"project":p.name,"last_successful_sync":iso_utc(p.github_refreshed_at),"last_attempted_sync":iso_utc(p.github_last_attempt_at),"sync_state":p.github_sync_status,"latest_commit_sha":((cache.get("latest_commit") or {}).get("sha")),"roadmap_source_sha":latest.source_sha if latest else None,"roadmap_parsed_time":iso_utc(latest.parsed_at) if latest else None,"roadmap_parse_state":latest.parse_status if latest else "Unknown","detected_version":p.latest_version,"version_source":cache.get("version_source","Unknown"),"version_evidence":cache.get("version_evidence",[]),"ci_state":((cache.get("ci") or {}).get("state")),"changelog_reconciliation_state":p.changelog_status,"last_error":p.github_sync_error,"backoff_until":iso_utc(p.github_backoff_until),"rate_limit":{"remaining":p.github_rate_limit_remaining,"limit":p.github_rate_limit_limit,"reset_at":iso_utc(p.github_rate_limit_reset_at)}})
+        ci = cache.get("ci") or {}
+        rows.append({"project_id":p.id,"project":p.name,"last_successful_sync":iso_utc(p.github_refreshed_at),"last_attempted_sync":iso_utc(p.github_last_attempt_at),"sync_state":p.github_sync_status,"latest_commit_sha":((cache.get("latest_commit") or {}).get("sha")),"ci_commit_sha":ci.get("commit_sha"),"roadmap_source_sha":latest.source_sha if latest else None,"roadmap_parsed_time":iso_utc(latest.parsed_at) if latest else None,"roadmap_parse_state":latest.parse_status if latest else "Unknown","detected_version":p.latest_version,"version_source":cache.get("version_source","Unknown"),"version_evidence":cache.get("version_evidence",[]),"ci_state":ci.get("state"),"changelog_reconciliation_state":p.changelog_status,"last_error":p.github_sync_error,"backoff_until":iso_utc(p.github_backoff_until),"rate_limit":{"remaining":p.github_rate_limit_remaining,"limit":p.github_rate_limit_limit,"reset_at":iso_utc(p.github_rate_limit_reset_at)}})
     return rows
 
 @app.get("/api/projects/{project_id}/roadmap/intelligence")

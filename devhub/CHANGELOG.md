@@ -2,6 +2,15 @@
 
 This changelog is packaged with the DevHub Home Assistant app so release notes are visible from the Home Assistant app/add-on store. The repository-level `CHANGELOG.md` remains the detailed product changelog.
 
+## 0.5.8
+
+- Added editable friendly project names while preserving GitHub repository identity.
+- Linked a single OPEN PR Portfolio chip directly to its GitHub pull request.
+- Fixed roadmap Next Phase detection so stale historical phases cannot override a newer detected release.
+- Improved manual refresh with a rotating indicator, completion/failure feedback and immediate refreshed Portfolio/roadmap data.
+- Fixed stale Pending CI by prioritising completed GitHub check-runs and associating cached CI with the latest commit SHA.
+- Preserved Home Assistant ingress, compact mobile Portfolio navigation, Evidence Intelligence and aarch64 startup protections.
+
 ## 0.5.7
 
 - Fixed synchronisation timestamps so newly refreshed projects display accurate relative times instead of appearing hours old in local time zones.
