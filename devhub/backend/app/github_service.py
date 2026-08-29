@@ -4,13 +4,13 @@ import os
 import re
 from datetime import datetime, timezone
 import httpx
-import yaml
 
 class GitHubService:
     REPO_URL_RE = re.compile(r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
     SEMVER_TAG_RE = re.compile(r"^v?\d+\.\d+(?:\.\d+)?(?:[-+][A-Za-z0-9.-]+)?$", re.I)
     CHANGELOG_HEADING_RE = re.compile(r"^##\s+(?:\[)?(v?\d+\.\d+(?:\.\d+)?(?:[-+][A-Za-z0-9.-]+)?)(?:\])?(?:\s+-.*)?$", re.I | re.M)
     APP_VERSION_RE = re.compile(r"\bAPP_VERSION\s*=\s*[\"']([^\"']+)[\"']")
+    MANIFEST_VERSION_RE = re.compile(r"^version:\s*[\"']?([^\"'\s#]+)[\"']?\s*$", re.I | re.M)
 
     def __init__(self, token: str | None = None):
         self.token = token or os.getenv("DEVHUB_GITHUB_TOKEN", "")
@@ -103,10 +103,10 @@ class GitHubService:
             return None
         return {"source": source, "version": str(version), "path": path}
 
-    @staticmethod
-    def _manifest_version(text: str):
-        data = yaml.safe_load(text) or {}
-        return data.get("version") if isinstance(data, dict) else None
+    @classmethod
+    def _manifest_version(cls, text: str):
+        match = cls.MANIFEST_VERSION_RE.search(text)
+        return match.group(1) if match else None
 
     @classmethod
     def _changelog_version(cls, text: str):
@@ -162,7 +162,8 @@ class GitHubService:
     async def release_or_tag(self, owner: str, repo: str, ref: str = "main", changelog_path: str | None = None):
         evidence = await self.version_evidence(owner, repo, ref, changelog_path)
         winner = evidence[0] if evidence else {"source": "Unknown", "version": None}
-        return {"version": winner.get("version"), "url": winner.get("url"), "published_at": winner.get("published_at"), "source": winner.get("source", "Unknown"), "release": await self.latest_release(owner, repo) if winner.get("source") == "GitHub Release" else None, "evidence": evidence}
+        release = await self.latest_release(owner, repo) if winner.get("source") == "GitHub Release" else None
+        return {"version": winner.get("version"), "url": winner.get("url"), "published_at": winner.get("published_at"), "source": winner.get("source", "Unknown"), "release": release, "evidence": evidence}
 
     async def open_pull_requests(self, owner: str, repo: str):
         return await self._get(f"/repos/{owner}/{repo}/pulls?state=open&sort=updated&direction=desc&per_page=100") or []
