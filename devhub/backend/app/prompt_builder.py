@@ -39,8 +39,9 @@ def build_release_prompt(project: Project, release: Release, roadmap_text: str |
         "1. Inspect the latest merged branch state, current release/development version, latest releases/tags, recent merged PRs, open PRs and CI.",
         f"2. Read `{project.roadmap_path}` and `{project.changelog_path}` as authoritative Markdown documents.",
         "3. If this is a Home Assistant app/add-on repository, also inspect the packaged Home Assistant changelog (normally the add-on-local `CHANGELOG.md` beside `config.yaml`).",
-        "4. Use the focused structured roadmap context below where reliable, but retain uncertainty when mapping free-form roadmap bullets to implementation.",
-        "5. Preserve existing functionality and avoid regressions.",
+        "4. Inspect all authoritative version locations used by this repository and reconcile them before release, including Home Assistant config, frontend package metadata, backend application version and health/version endpoints where present.",
+        "5. Use the focused structured roadmap context below where reliable, but retain uncertainty when mapping free-form roadmap bullets to implementation.",
+        "6. Preserve existing functionality and avoid regressions.",
         "",
         "Selected DevHub release scope:",
     ]
@@ -63,6 +64,7 @@ def build_release_prompt(project: Project, release: Release, roadmap_text: str |
         "- Do not automatically select additional scope.",
         "- Create or update automated tests and run the complete relevant suite.",
         "- Determine the semantic version from the actual repository state and delivered scope.",
+        "- Reconcile all authoritative version locations so they agree before merge; do not leave the Home Assistant manifest, frontend package, backend version or health/version endpoint on different releases where those locations exist.",
         "- Reconcile ROADMAP.md after implementation, marking only genuinely delivered work complete and carrying unfinished items forward.",
         "- Reconcile the repository-level CHANGELOG.md so the latest documented version matches the actual release and contains accurate user-facing release notes.",
         "- For Home Assistant app/add-on repositories, update the packaged add-on-local CHANGELOG.md beside config.yaml for every release so Home Assistant displays the release notes to users.",
@@ -71,8 +73,11 @@ def build_release_prompt(project: Project, release: Release, roadmap_text: str |
         "- Keep release record, roadmap association, changelog and GitHub version evidence consistent.",
         "- Create a focused branch and PR. Do not create a separate GitHub Issue unless explicitly requested.",
         "- Do not merge while any required CI check is failing.",
-        "- After merge and successful post-merge CI, create or update the GitHub Release/tag for the released version when tooling and permissions allow.",
+        "- Before merge, ensure CI verifies the release version consistently across required metadata and verifies both repository and Home Assistant changelogs when applicable.",
+        "- After merge, inspect post-merge CI before considering the release complete.",
+        "- After successful post-merge CI, verify the semantic Git tag and GitHub Release state for the released version.",
+        "- Create or update the GitHub Release/tag for the released version when tooling and permissions allow, using the exact released commit as appropriate.",
         "- Use the final repository changelog entry as the basis for GitHub Release notes, edited into a concise user-facing summary rather than leaving the GitHub Release blank.",
-        "- If GitHub Release creation is not possible with the available tooling, report that explicitly instead of claiming the release notes were published.",
+        "- If GitHub Release or tag creation is not possible with the available tooling, report that explicitly instead of claiming publication succeeded.",
     ]
     return "\n".join(lines)
