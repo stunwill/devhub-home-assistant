@@ -2,6 +2,37 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.5.7] - 2026-08-30
+
+### Fixed
+
+- Corrected GitHub synchronisation timestamps so API responses serialise UTC timestamps with an explicit `Z` suffix instead of exposing timezone-naive values that browsers could interpret as local time.
+- Newly added or refreshed projects now report relative sync times such as `just now` instead of appearing approximately ten hours old in UTC+10 environments.
+- Preserved timezone-naive SQLite storage where required while making API boundaries unambiguously UTC, avoiding mixed aware/naive datetime comparison errors.
+
+### Portfolio Intelligence
+
+- Expanded release detection from GitHub Release / Git tag only to a deterministic evidence hierarchy covering GitHub Release, semantic Git tag, Home Assistant manifest, CHANGELOG heading, frontend package version and backend `APP_VERSION`.
+- Retained the selected release source plus all discovered version evidence in the project GitHub cache for diagnostics and conflict visibility.
+- Portfolio ordering now prioritises projects with open pull requests, oldest open PR activity first, followed by projects without open PRs ordered by oldest last-merged PR activity.
+- Projects with no known PR history sort after projects with known merged-PR history, with project name as the deterministic tie-breaker.
+- Open pull request counts now render as a prominent amber `OPEN PR` attention chip while zero-PR projects remain visually muted.
+- Expanded project-card details expose individual open PR links and version evidence without increasing the collapsed card footprint.
+- Project Details and synchronisation diagnostics now expose version evidence alongside the detected version source.
+
+### Regression protection
+
+- Added backend coverage for explicit UTC serialisation and version-evidence parsers.
+- Added frontend coverage for UTC and offset-aware relative time calculations plus PR-priority Portfolio sorting.
+- Extended UI contract and CI source safeguards for version evidence, PR sorting and prominent open-PR styling.
+- Preserved existing ingress, mobile hamburger navigation, compact Portfolio layout, Roadmap Intelligence, Evidence Intelligence and aarch64 startup protections.
+
+### Release scope
+
+- Application, frontend and Home Assistant app version metadata updated consistently to 0.5.7.
+- No database migration is required.
+- No Release Execution functionality is included.
+
 ## [0.5.6] - 2026-08-29
 
 ### Changed
@@ -95,3 +126,9 @@ All notable changes to DevHub are documented here.
 - Application, frontend and Home Assistant app version metadata updated consistently to 0.5.4.
 - No database migration is required because lifecycle classification is derived from existing roadmap/release evidence.
 - No Release Execution functionality is included.
+
+## [0.5.3] - 2026-08-29
+
+### Fixed
+
+- Mobile responsive corrections and ingress-safe interaction fixes.
