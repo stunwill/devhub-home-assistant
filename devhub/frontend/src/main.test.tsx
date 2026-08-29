@@ -2,12 +2,14 @@ import '@testing-library/jest-dom/vitest';
 import React from 'react';
 import {render, screen} from '@testing-library/react';
 import {describe, it, expect, vi} from 'vitest';
-import {relativeTime, sortPortfolioProjects} from './main';
+import {relativeTime, sortPortfolioProjects} from './portfolioUtils';
 
 globalThis.fetch = vi.fn(async (url: RequestInfo | URL) => ({
   ok: true,
   text: async () => JSON.stringify(String(url).includes('/api/projects') ? [] : String(url).includes('/api/register') ? [] : String(url).includes('/api/releases') ? [] : {}),
 })) as unknown as typeof fetch;
+
+vi.mock('./main.tsx', () => ({}));
 
 describe('DevHub frontend contract', () => {
   it('keeps Portfolio Intelligence and assisted requirements wording available', async () => {
@@ -32,11 +34,11 @@ describe('DevHub frontend contract', () => {
   });
 
   it('prioritises open PR projects then oldest PR or merged activity', () => {
-    const project=(id:number,name:string,cache:any)=>({id,name,code:name.slice(0,2),github_owner:'o',github_repo:name,default_branch:'main',roadmap_path:'ROADMAP.md',changelog_path:'CHANGELOG.md',active:true,github_sync_status:'Synced',github_cache_json:JSON.stringify(cache)} as any);
+    const project=(id:number,name:string,cache:any)=>({id,name,github_cache_json:JSON.stringify(cache)});
     const rows=[
       project(1,'No PR recent',{open_pr_count:0,last_merged_pr:{merged_at:'2026-08-29T10:00:00Z'}}),
-      project(2,'Open newer',{open_pr_count:1,open_prs:[{number:2,title:'x',url:'#',updated_at:'2026-08-29T09:00:00Z'}]}),
-      project(3,'Open older',{open_pr_count:1,open_prs:[{number:3,title:'x',url:'#',updated_at:'2026-08-28T09:00:00Z'}]}),
+      project(2,'Open newer',{open_pr_count:1,open_prs:[{updated_at:'2026-08-29T09:00:00Z'}]}),
+      project(3,'Open older',{open_pr_count:1,open_prs:[{updated_at:'2026-08-28T09:00:00Z'}]}),
       project(4,'No PR older',{open_pr_count:0,last_merged_pr:{merged_at:'2026-08-27T10:00:00Z'}}),
       project(5,'No history',{open_pr_count:0}),
     ];
