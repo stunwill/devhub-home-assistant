@@ -9,7 +9,7 @@ RUN npm run build
 
 FROM ${BUILD_FROM}
 
-RUN apk add --no-cache git
+RUN apk add --no-cache git ffmpeg
 
 WORKDIR /app
 ENV PYTHONPATH=/app
