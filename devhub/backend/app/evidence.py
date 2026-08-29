@@ -1,5 +1,4 @@
 import base64
-import os
 import shutil
 import subprocess
 import tempfile
@@ -10,7 +9,7 @@ from .schemas import AssistedAttachment, EvidenceAnalysis, EvidenceObservation
 
 MAX_EVIDENCE_FILES = 6
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
-MAX_VIDEO_BYTES = 80 * 1024 * 1024
+MAX_VIDEO_BYTES = 50 * 1024 * 1024
 MAX_VIDEO_SECONDS = 120.0
 MAX_VIDEO_FRAMES = 6
 MAX_FRAME_WIDTH = 1280
@@ -25,8 +24,8 @@ class PreparedEvidence:
 
 class EvidenceService:
     def __init__(self, ffmpeg: str | None = None, ffprobe: str | None = None):
-        self.ffmpeg = ffmpeg or shutil.which("ffmpeg")
-        self.ffprobe = ffprobe or shutil.which("ffprobe")
+        self.ffmpeg = shutil.which("ffmpeg") if ffmpeg is None else ffmpeg
+        self.ffprobe = shutil.which("ffprobe") if ffprobe is None else ffprobe
 
     def prepare(self, attachments: list[AssistedAttachment]) -> PreparedEvidence:
         prepared = PreparedEvidence()
@@ -101,6 +100,8 @@ class EvidenceService:
             warnings: list[str] = []
             if duration > MAX_VIDEO_SECONDS:
                 warnings.append(f"{attachment.name}: only the first {int(MAX_VIDEO_SECONDS)} seconds were analysed")
+            if not images:
+                warnings.append(f"{attachment.name}: no usable video frames could be extracted")
             item = {"name": attachment.name, "content_type": attachment.content_type, "size_bytes": len(raw), "kind": "video", "duration_seconds": round(duration, 2), "analysed_duration_seconds": round(analysed_duration, 2), "width": width, "height": height, "extracted_frames": len(images)}
             return item, images, observations, warnings
 
