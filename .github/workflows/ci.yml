@@ -60,6 +60,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
+      - name: Validate release changelogs
+        run: |
+          grep -q '^## \[0.5.3\]' CHANGELOG.md
+          test -s devhub/CHANGELOG.md
+          grep -q '^## 0.5.3$' devhub/CHANGELOG.md
       - name: Validate Home Assistant app manifest
         run: |
           grep -q 'version: "0.5.3"' devhub/config.yaml
