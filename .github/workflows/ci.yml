@@ -70,7 +70,7 @@ jobs:
       - name: Smoke test video frame extraction
         run: |
           docker run --rm --platform linux/arm64 --entrypoint /bin/sh devhub-ci:aarch64 -c '
-            ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=black:s=320x240:d=1 -c:v libx264 -pix_fmt yuv420p -y /tmp/test.mp4 &&
+            ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=black:s=320x240:d=1 -c:v mpeg4 -y /tmp/test.mp4 &&
             ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 /tmp/test.mp4 | grep -q duration= &&
             ffmpeg -hide_banner -loglevel error -ss 0.5 -i /tmp/test.mp4 -frames:v 1 -y /tmp/frame.jpg &&
             test -s /tmp/frame.jpg
