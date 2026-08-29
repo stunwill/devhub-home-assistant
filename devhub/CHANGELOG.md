@@ -2,6 +2,14 @@
 
 This changelog is packaged with the DevHub Home Assistant app so release notes are visible from the Home Assistant app/add-on store. The repository-level `CHANGELOG.md` remains the detailed product changelog.
 
+## 0.5.4
+
+- Fixed Roadmap Intelligence lifecycle ordering so a lower released version can no longer become the automatically detected next phase.
+- Added deterministic historical, current, future and Future-bucket lifecycle classification, including support for version bands such as `v0.5.x`.
+- Improved Project Details lifecycle badges and reduced repetitive historical planning controls on mobile.
+- Improved reconciliation messaging when GitHub release history is valid but the matching DevHub release record is missing.
+- Preserved Home Assistant ingress, Evidence Intelligence and aarch64 startup protections.
+
 ## 0.5.3
 
 - Optimised DevHub for phones and small tablets with responsive navigation, action groups, cards, forms, tables and project details.

@@ -2,7 +2,7 @@
 
 DevHub is a Home Assistant app for managing a portfolio of GitHub-developed applications. It combines release visibility, pull-request status, structured roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning, deterministic roadmap/release reconciliation and optional Assisted Requirements.
 
-## v0.5.1 capabilities
+## v0.5.4 capabilities
 
 - Home Assistant app packaging with ingress.
 - FastAPI backend, React/Vite frontend and SQLite persistence.
@@ -11,11 +11,15 @@ DevHub is a Home Assistant app for managing a portfolio of GitHub-developed appl
 - Project logo/icon upload stored in persistent runtime storage.
 - Deterministic Roadmap Intelligence for common Markdown roadmap structures.
 - Structured and Raw Markdown roadmap views.
-- Automatic current/next phase detection plus user confirmation/override controls.
+- Semantic lifecycle-aware current/next phase detection that separates roadmap source order from release order.
+- Historical, current, future/planned and non-versioned Future-bucket classification using deterministic release evidence.
+- Semantic version-band support such as `v0.5.x` and `v0.6.x`.
+- User confirmation/override controls that remain authoritative until automatic detection is restored.
 - Reversible ignored roadmap phases without changing `ROADMAP.md`.
 - Roadmap snapshots, phases and items stored relationally.
 - Register-item and release associations with roadmap phases.
 - Deterministic roadmap reconciliation with reasons and read-only update previews.
+- Reconciliation diagnostics that distinguish repository consistency from missing DevHub internal release history.
 - Deterministic `CHANGELOG.md` version parsing and reconciliation.
 - Roadmap-aware filtering and Next Release Builder suggestions without automatic scope selection.
 - Focused release prompts using current/next/selected phase, reconciliation and changelog context.
@@ -45,6 +49,7 @@ Home Assistant
       -> GitHub REST API
       -> backend synchronisation task
       -> deterministic roadmap/changelog parsers
+      -> roadmap lifecycle resolver
       -> reconciliation service
       -> Assisted Requirements service
           -> EvidenceService
@@ -145,7 +150,7 @@ Visible text in screenshots and video frames is treated as untrusted source mate
 
 Before model analysis, DevHub performs deterministic same-project matching against structured Register fields including title, description, actual behaviour and expected behaviour. Matching uses weighted local similarity and returns a short explanation such as `similar title` or `similar actual behaviour`.
 
-Stronger matches are shown as **Possible duplicate** and weaker matches as **Possibly related**. These remain advisory in v0.5.1. DevHub does not automatically merge, reject or link work, and no database migration is introduced solely for relationships.
+Stronger matches are shown as **Possible duplicate** and weaker matches as **Possibly related**. These remain advisory. DevHub does not automatically merge, reject or link work.
 
 ## Portfolio dashboard
 
@@ -157,17 +162,21 @@ Use **Refresh All** to immediately refresh all active projects. If GitHub refres
 
 `ROADMAP.md` remains authoritative. DevHub parses common version, phase, milestone, planned/current/completed/future and bullet/task-list structures into relational roadmap snapshots, phases and items.
 
+Roadmap source order is preserved for display, but lifecycle planning is resolved separately. For concrete semantic versions, automatic next-phase candidates must be greater than the current detected release. A lower version cannot become the next phase merely because it appears later in the Markdown document. Version bands such as `v0.5.x` are matched to concrete releases in that minor line, and later bands such as `v0.6.x` remain valid future candidates. If no later versioned phase exists, a planned `Future` section may become the next planning bucket.
+
 The Roadmap workflow provides:
 
 - **Structured** and **Raw Markdown** views;
-- automatic current and next phase detection;
+- automatic current released phase and next planned phase detection;
+- deterministic lifecycle badges for historical/released, current/released, future/planned, Future, ignored and unable-to-determine states;
 - explicit current/next phase selection with clear **Detected**, **User confirmed** or **User override** labelling;
 - clearing an override to return to automatic detection;
 - reversible **Ignore in DevHub planning** controls for false-positive or non-planning sections;
+- automatic exclusion of ordinary historical phases from planning without requiring them to be ignored;
 - linked Register items and planned/completed releases for phase context;
 - manual **Reparse Roadmap** support.
 
-Ignoring or overriding a phase changes only DevHub-managed metadata. DevHub does not automatically modify `ROADMAP.md`.
+Ignoring or overriding a phase changes only DevHub-managed metadata. Historical lifecycle classification is not the same as ignoring a phase. DevHub does not automatically modify `ROADMAP.md`.
 
 ## Roadmap reconciliation
 
@@ -175,7 +184,9 @@ DevHub compares available deterministic evidence including the detected GitHub v
 
 Possible roadmap reconciliation states are **Reconciled**, **Reconciliation recommended**, **Reconciliation required** and **Unable to determine**.
 
-Project Details explains the reasons and provides a read-only suggested roadmap reconciliation preview. Free-form roadmap bullets are not treated as perfect implementation mappings, and uncertain evidence remains explicit. DevHub never edits or commits `ROADMAP.md` as part of reconciliation.
+Project Details separates repository state from DevHub's internal release-history completeness. A matching GitHub release, roadmap phase and current changelog can be shown as repository-reconciled while separately reporting that DevHub has no matching release record. This does not cause DevHub to create a release record automatically.
+
+Project Details explains the reasons and provides a read-only suggested reconciliation preview. Free-form roadmap bullets are not treated as perfect implementation mappings, and uncertain evidence remains explicit. DevHub never edits or commits `ROADMAP.md` or `CHANGELOG.md` as part of reconciliation.
 
 ## Changelog reconciliation
 
@@ -187,7 +198,7 @@ Register items may reference a parsed roadmap phase while retaining a separate t
 
 ## Roadmap-aware release planning
 
-The Next Release Builder shows the current detected release, current/next roadmap phase, explicit target roadmap phase and suggested Register scope. Nothing is automatically selected.
+The Next Release Builder shows the current detected release, current/next roadmap phase, explicit target roadmap phase and suggested Register scope. Historical phases are excluded from ordinary planning choices. Nothing is automatically selected.
 
 Generated release prompts include relevant roadmap, reconciliation and changelog context while preserving manual scope selection.
 
@@ -199,7 +210,7 @@ Settings provides operational diagnostics including sync attempts, latest commit
 
 Frontend production assets use Vite `base: './'` so JS/CSS remain relative to the Home Assistant ingress path. CI explicitly rejects root-absolute `/assets/...` paths. The Assisted Requirements modal and existing dashboard layouts avoid page-level horizontal scrolling on portrait mobile.
 
-Evidence file names, capability notices, observation cards and requirement controls are designed to wrap within narrow mobile viewports rather than forcing page-level horizontal scrolling.
+Roadmap lifecycle cards, evidence file names, capability notices, observation cards and requirement controls are designed to wrap within narrow mobile viewports rather than forcing page-level horizontal scrolling. Historical roadmap cards suppress repetitive item detail at phone widths and do not show a large ignore action unless that phase is already explicitly ignored.
 
 ## Persistent data
 
@@ -237,13 +248,13 @@ npm run dev
 
 ## Database migrations
 
-Alembic is configured under `devhub/migrations`, and app startup runs `alembic upgrade head` before FastAPI. v0.5.1 does not require a new migration because evidence analysis is transient and duplicate/related relationships remain advisory.
+Alembic is configured under `devhub/migrations`, and app startup runs `alembic upgrade head` before FastAPI. v0.5.4 does not require a database migration because roadmap lifecycle state is derived from existing parsed roadmap and release evidence rather than stored redundantly.
 
 ## CI and startup protection
 
 CI verifies:
 
-- backend tests including Assisted Requirements and Evidence Intelligence deterministic/mocked-provider tests;
+- backend tests including Roadmap Intelligence lifecycle, Assisted Requirements and Evidence Intelligence deterministic/mocked-provider tests;
 - frontend type/lint checks and tests;
 - frontend production build;
 - ingress-safe relative production asset paths;
