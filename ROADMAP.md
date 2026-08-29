@@ -135,12 +135,23 @@ Mobile responsive UX delivered in v0.5.3:
 - Improved touch target sizing, mobile form width, mobile modal behaviour and compact phone spacing while preserving desktop layouts.
 - Added CI regression checks for responsive breakpoint rules and retained all Home Assistant ingress routing protections.
 
+Roadmap lifecycle correction delivered in v0.5.4:
+
+- Separated roadmap source order from lifecycle order so descending roadmaps cannot move automatic planning backwards.
+- Added deterministic historical/current/future classification using semantic release evidence while preserving source order for display.
+- Preserved semantic version-band roadmaps such as `v0.5.x` and `v0.6.x`.
+- Prefer a planned `Future` bucket when no later concrete or version-band phase exists.
+- Excluded historical phases from ordinary automatic release planning without treating them as ignored.
+- Improved Project Details lifecycle badges and reconciliation messaging for missing DevHub release history.
+- Added regression coverage for the MathQuest-style descending-roadmap failure.
+
 Remaining v0.5.x opportunities:
 
 - User-confirmed persisted `duplicate of` / `related to` relationships if advisory detection proves valuable in real usage.
 - Additional refinement of similarity ranking based on representative Register data.
 - Additional AI providers where demand justifies them.
 - Direct native provider video input only where a documented, reliable provider path justifies it over bounded frame extraction.
+- User-confirmed import/reconciliation of historical DevHub release records from trusted GitHub release evidence.
 
 ## v0.6.x Release Execution
 

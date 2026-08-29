@@ -5,6 +5,8 @@ from typing import Iterable
 VERSION_RE = re.compile(r"\b(v?\d+\.\d+(?:\.\d+|\.x)?(?:[-+][A-Za-z0-9.-]+)?)\b", re.I)
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 ITEM_RE = re.compile(r"^\s*[-*+]\s+(?:\[( |x|X)\]\s+)?(.+?)\s*$")
+SEMVER_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:[-+][A-Za-z0-9.-]+)?$", re.I)
+VERSION_BAND_RE = re.compile(r"^v?(\d+)\.(\d+)\.x$", re.I)
 
 @dataclass
 class ParsedItem:
@@ -23,6 +25,59 @@ class ParsedPhase:
     sort_order: int
     raw_heading: str
     items: list[ParsedItem] = field(default_factory=list)
+
+
+def semantic_version(value: str | None) -> tuple[int, int, int] | None:
+    if not value:
+        return None
+    match = SEMVER_RE.match(value.strip())
+    return tuple(map(int, match.groups())) if match else None
+
+
+def version_order_key(value: str | None) -> tuple[int, int, int] | None:
+    exact = semantic_version(value)
+    if exact:
+        return exact
+    if not value:
+        return None
+    band = VERSION_BAND_RE.match(value.strip())
+    return (int(band.group(1)), int(band.group(2)), 0) if band else None
+
+
+def version_contains(phase_version: str | None, detected_version: str | None) -> bool:
+    phase_exact = semantic_version(phase_version)
+    detected = semantic_version(detected_version)
+    if phase_exact and detected:
+        return phase_exact == detected
+    if not phase_version or not detected:
+        return False
+    band = VERSION_BAND_RE.match(phase_version.strip())
+    return bool(band and (int(band.group(1)), int(band.group(2))) == detected[:2])
+
+
+def lifecycle_status(phase, detected_version: str | None) -> str:
+    if getattr(phase, "ignored", False):
+        return "Ignored"
+    if getattr(phase, "phase_type", None) == "Future":
+        return "Future"
+    phase_version = getattr(phase, "version", None)
+    detected = semantic_version(detected_version)
+    if detected and version_contains(phase_version, detected_version):
+        return "Current / Released"
+    phase_key = version_order_key(phase_version)
+    if phase_key and detected:
+        if phase_key < detected:
+            return "Historical / Released"
+        if phase_key > detected:
+            return "Future / Planned"
+    explicit = getattr(phase, "status", "Unknown") or "Unknown"
+    if explicit == "Completed":
+        return "Historical / Delivered"
+    if explicit == "In Progress":
+        return "Current"
+    if explicit == "Planned":
+        return "Future / Planned"
+    return "Unable to determine"
 
 
 def _status_for_heading(text: str, items: Iterable[ParsedItem]) -> str:

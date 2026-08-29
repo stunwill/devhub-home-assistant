@@ -2,6 +2,38 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.5.4] - 2026-08-29
+
+### Fixed
+
+- Corrected Roadmap Intelligence so roadmap source order is no longer treated as lifecycle order.
+- Automatic next-phase detection now uses semantic-version progression and never selects a lower released version as future work.
+- When the current concrete release is the latest semantic version and a `Future` roadmap bucket exists, DevHub now selects `Future` rather than walking backwards through historical releases.
+- Historical roadmap versions are classified deterministically as historical/released instead of remaining `Unknown` when the detected repository release provides sufficient evidence.
+- Semantic version bands such as `v0.5.x` remain supported, including resolving the current release into its matching band and progressing to a later band such as `v0.6.x`.
+- Historical phases are excluded from automatic release-planning choices without requiring the user to mark them ignored.
+- Preserved explicit user current/next phase overrides, including manual selection of unusual phases where required.
+
+### Changed
+
+- Project Details now labels the current released phase and next planned phase more clearly.
+- Roadmap phase cards expose lifecycle status separately from raw parsed heading/task status.
+- Historical cards no longer show a large planning-ignore action by default and are more compact on mobile.
+- Next Release Builder excludes historical phases from ordinary planning choices.
+- Reconciliation now distinguishes repository consistency from missing DevHub internal release history, so a valid GitHub release/roadmap/changelog combination is not presented as a roadmap defect merely because DevHub lacks a local release record.
+
+### Regression protection
+
+- Added lifecycle tests for descending and ascending roadmaps, future buckets, patch progression, version bands, no-future cases, user overrides and ignored phases.
+- Added reconciliation coverage for a detected GitHub release with matching roadmap/changelog evidence but a missing DevHub release record.
+- Preserved Home Assistant ingress routing, responsive/mobile safeguards, Evidence Intelligence media checks, aarch64 image build and startup smoke testing.
+
+### Release scope
+
+- Application, frontend and Home Assistant app version metadata updated consistently to 0.5.4.
+- No database migration is required because lifecycle classification is derived from existing roadmap/release evidence.
+- No Release Execution functionality is included.
+
 ## [0.5.3] - 2026-08-29
 
 ### Changed
@@ -99,7 +131,7 @@ All notable changes to DevHub are documented here.
 ### Security and control
 
 - AI drafts never create, approve, prioritise, schedule or release work automatically.
-- Provider credentials remain server-side and are not returned by the status API.
+- Provider credentials remain server-side and are not returned by the DevHub API.
 - Model output is validated through Pydantic before it reaches the UI.
 - Repository, roadmap, feedback and evidence content are treated as untrusted model context rather than executable instructions.
 - OpenAI-compatible custom provider URLs require HTTPS and reject local/private literal IP addresses.
