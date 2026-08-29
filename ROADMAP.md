@@ -58,7 +58,7 @@ Delivered in v0.4.0:
 - Project Details roadmap summary and phase/item visibility.
 - Roadmap-aware Next Release Builder suggestions without automatic scope selection.
 - Structured roadmap context included in generated release prompts.
-- GitHub Release to semantic Git tag version fallback with recorded version source.
+- GitHub Release to Git tag version fallback with recorded version source.
 - Richer CI aggregation using GitHub check-runs plus combined commit status.
 - Roadmap cache reuse when the source file SHA has not changed.
 - Manual Reparse Roadmap support.
@@ -155,6 +155,15 @@ Portfolio density and scanability delivered in v0.5.5:
 - Shifted visual emphasis toward missing/failed states and away from normal zero/healthy values.
 - Added responsive two-column mobile cards where practical, with a narrow single-column fallback and three-to-four-column desktop layouts.
 - Preserved existing Roadmap Intelligence, release planning, ingress routing, Evidence Intelligence and aarch64 startup protections.
+
+Compact mobile navigation delivered in v0.5.6:
+
+- Replaced the permanently expanded mobile navigation grid with a hamburger-triggered drawer beside the DevHub brand.
+- Kept Portfolio refresh and Create actions in the compact mobile application header.
+- Moved Portfolio, Projects, Register, Releases and Settings into the mobile drawer while preserving the desktop sidebar.
+- Removed the persistent mobile subtitle/navigation block so Portfolio summary data begins significantly higher on phone screens.
+- Added Escape, backdrop-dismissal, active-page indication, focus return and safe-area support for the mobile drawer.
+- Preserved compact two-column Portfolio cards, Home Assistant ingress behaviour and existing page workflows.
 
 Remaining v0.5.x opportunities:
 

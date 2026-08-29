@@ -2,6 +2,35 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.5.6] - 2026-08-29
+
+### Changed
+
+- Replaced the permanently expanded mobile navigation block with a compact hamburger-triggered navigation drawer.
+- Added the hamburger control directly beside the DevHub brand in the mobile application header.
+- Kept the Portfolio refresh icon and Create `+` action in the compact header so primary actions remain immediately available.
+- Moved Portfolio, Projects, Register, Releases and Settings into the mobile navigation drawer while preserving the desktop sidebar.
+- Removed the mobile Portfolio Dashboard subtitle from the persistent header and moved the Portfolio page title into content so dashboard data starts substantially higher on phone screens.
+
+### Accessibility and responsive UX
+
+- Added `aria-expanded`, `aria-controls`, labelled navigation, current-page state and visible focus treatment for mobile navigation.
+- Mobile navigation closes when a destination is selected, when the backdrop is tapped and when Escape is pressed, with focus returned to the hamburger control after keyboard dismissal.
+- The drawer respects mobile safe-area insets and remains above Home Assistant ingress content.
+- Preserved the compact two-column Portfolio card layout on normal phone widths and the existing narrow-screen single-column fallback.
+
+### Regression protection
+
+- Updated frontend UI contract coverage for the hamburger navigation labels and navigation landmark.
+- Replaced CI checks that required the old mobile navigation grid with safeguards for the mobile drawer, hamburger accessibility state and responsive breakpoint.
+- Preserved frontend lint/test/build, ingress-safe asset/API routing, backend tests, Evidence Intelligence media checks and aarch64 build/startup smoke testing.
+
+### Release scope
+
+- Application, frontend and Home Assistant app version metadata updated consistently to 0.5.6.
+- No database migration is required because this release changes only application-shell navigation and presentation.
+- No Release Execution functionality is included.
+
 ## [0.5.5] - 2026-08-29
 
 ### Changed
@@ -66,163 +95,3 @@ All notable changes to DevHub are documented here.
 - Application, frontend and Home Assistant app version metadata updated consistently to 0.5.4.
 - No database migration is required because lifecycle classification is derived from existing roadmap/release evidence.
 - No Release Execution functionality is included.
-
-## [0.5.3] - 2026-08-29
-
-### Changed
-
-- Reworked the mobile application shell so primary navigation remains fully reachable on phone widths without horizontal page scrolling.
-- Added responsive action grids for header and Project Details controls so actions such as Repository, Refresh and Add Feedback stay within the viewport.
-- Improved project identity, repository names, roadmap labels, status text, errors and other long content so they wrap safely instead of widening the page.
-- Improved Portfolio cards, Project Details, Register tables, Releases, Settings diagnostics and Roadmap Intelligence for narrow viewports.
-- Made Assisted Requirements behave as a full-screen mobile workflow with stacked form controls, action buttons, evidence information and acceptance-criteria controls.
-- Increased practical touch target sizing for buttons and form controls while preserving the existing desktop layout.
-- Added compact 800 px and 480 px responsive breakpoints covering phones and small tablets.
-
-### Regression protection
-
-- CI now checks for the mobile responsive breakpoint rules, mobile navigation grid, long-content wrapping, touch targets and full-screen mobile modal behaviour.
-- Existing Home Assistant ingress asset and API-routing regression checks remain intact.
-- ARM64 startup smoke testing now requires `/api/health` to report version 0.5.3.
-
-### Release scope
-
-- Application, frontend and Home Assistant app version metadata updated consistently to 0.5.3.
-- No database migration is required for this UX-only release.
-- v0.6.x Release Execution remains future work and is not advanced by this release.
-
-## [0.5.2] - 2026-08-29
-
-### Fixed
-
-- Completed the Home Assistant ingress API-routing correction so frontend `/api/...` requests remain inside the active DevHub ingress path instead of being handled by Home Assistant and returning `404: Not Found`.
-- Restored project onboarding through ingress, including the reported `https://github.com/stunwill/fynvo-home-assistant` case.
-- Restored loading of configured projects and other API-backed portfolio data through Home Assistant ingress.
-- Preserved ingress-safe handling for project logo API URLs and other frontend requests covered by the shared routing bootstrap.
-
-### Regression protection
-
-- Retained the existing production-asset ingress check that rejects root-absolute `/assets/...` paths.
-- Retained and explicitly validated regression coverage for `/api/projects` and `/api/projects/from-url` under `/api/hassio_ingress/<token>/`.
-- Home Assistant manifest CI now verifies the 0.5.2 release version, modern `app_config` mapping, aarch64/amd64 support and the absence of deprecated `armv7`/`addon_config` declarations.
-- ARM64 startup smoke testing now requires `/api/health` to report version 0.5.2.
-
-### Release correction
-
-- Application, frontend and Home Assistant app version metadata updated consistently to 0.5.2 so Home Assistant can recognise and install the corrected image.
-- No database migration is required for this corrective release.
-
-## [0.5.1] - 2026-08-29
-
-### Added
-
-- Evidence Intelligence for Assisted Requirements, including bounded local video preprocessing and representative frame extraction.
-- FFmpeg/ffprobe support in the Home Assistant image for screen-recording metadata inspection and frame extraction.
-- Structured evidence summaries, observations, timestamps, confidence labels and ambiguity warnings kept separate from the editable requirement draft.
-- Provider capability reporting for text, image, multiple-image, direct-video, frame-based video and structured-output support without exposing credentials.
-- Bounded video limits for duration, payload size, image dimensions and extracted frame count.
-- Evidence-aware requirement prompting that explicitly treats visible screenshot/video text as untrusted source material and avoids unsupported root-cause claims.
-- More explainable deterministic duplicate/related-item ranking with weighted title/description/behaviour matching and human-readable match reasons.
-- Frontend Evidence analysis review section and clearer processing states for evidence preparation and analysis.
-- ARM64 CI smoke checks confirming ffmpeg/ffprobe are present and can generate, inspect and extract a frame from a tiny video fixture.
-
-### Changed
-
-- Video evidence is now analysed through bounded locally extracted frames when the configured provider supports images. Direct native provider video is not claimed by the current OpenAI/OpenAI-compatible path.
-- Assisted Requirements status now exposes non-secret provider capabilities.
-- The analysis request continues to remain synchronous because the bounded 120-second/6-frame pipeline fits the existing Home Assistant ingress request model without adding job infrastructure.
-- Application, frontend and Home Assistant app version metadata updated to 0.5.1.
-
-### Security and control
-
-- Original evidence remains authoritative and is uploaded to the Register item only after explicit user confirmation.
-- Extracted frames are transient and created only in temporary directories; they are not persisted under `/config`.
-- Model output remains validated by Pydantic and cannot execute commands, perform GitHub writes, change roadmap state or create Register items.
-- Video payloads are size/duration/frame bounded and malformed media returns explicit warnings rather than crashing analysis.
-
-### Not included
-
-- Persisted `duplicate of` / `related to` relationship records remain future v0.5.x work.
-- Native provider video input remains disabled until a documented provider path justifies it.
-- No database migration is required for this release.
-
-## [0.5.0] - 2026-08-28
-
-### Added
-
-- First Assisted Requirements workflow from feedback and evidence through to an editable requirement draft and explicit Register-item creation.
-- Optional AI provider service abstraction with Home Assistant configuration for enablement, provider, model, credential and base URL.
-- Structured AI suggestions for title, item type, description, actual/expected behaviour, priority, acceptance criteria, testing instructions and roadmap phase.
-- Screenshot/photo evidence support for compatible OpenAI-style multimodal chat providers, with original attachments retained for the final Register item.
-- Deterministic same-project duplicate and related-item candidate narrowing before AI analysis.
-- Roadmap-aware requirement context limited to relevant current/next phase information.
-- Editable and reorderable acceptance criteria plus explicit roadmap-phase selection in the assisted review UI.
-- AI disabled/not-configured states and a non-AI requirement creation path so core DevHub remains fully usable without AI.
-- Regression CI checks for Home Assistant manifest metadata and ingress-safe Vite production asset paths.
-- Backend coverage for successful mocked analysis, provider failure, invalid model output, candidate detection, roadmap validation and evidence warnings.
-
-### Security and control
-
-- AI drafts never create, approve, prioritise, schedule or release work automatically.
-- Provider credentials remain server-side and are not returned by the DevHub API.
-- Model output is validated through Pydantic before it reaches the UI.
-- Repository, roadmap, feedback and evidence content are treated as untrusted model context rather than executable instructions.
-- OpenAI-compatible custom provider URLs require HTTPS and reject local/private literal IP addresses.
-- No database migration is required because duplicate/related relationships remain advisory in this focused release.
-
-### Limitations
-
-- Video files are retained as Register evidence, but direct video understanding is not enabled in the initial provider path; DevHub reports this explicitly rather than pretending the video was analysed.
-- Persisted duplicate/related-item relationship records remain future v0.5.x work if real usage shows they are valuable.
-
-### Preserved
-
-- v0.4.x Roadmap Intelligence, roadmap/changelog reconciliation and manual planning controls.
-- v0.4.2 relative Vite asset base required for Home Assistant ingress.
-- Modern `app_config` mapping and aarch64/amd64 Home Assistant app support.
-- Existing GitHub synchronisation, Portfolio Dashboard, Release Builder, persistence and aarch64 startup smoke test.
-
-## [0.4.2] - 2026-08-28
-
-### Fixed
-
-- Home Assistant ingress now loads Vite production assets using relative paths instead of root-relative `/assets/...` URLs.
-- Home Assistant app manifest now uses `app_config` instead of the legacy `addon_config` mapping.
-- Removed deprecated `armv7` support declaration while retaining aarch64 and amd64 support.
-
-### Changed
-
-- Application, frontend and Home Assistant app version metadata bumped to 0.4.2.
-
-## [0.4.1] - 2026-08-28
-
-### Added
-
-- User-controlled current and next roadmap phase confirmation/overrides, with automatic detection retained as the default.
-- Reversible ignored roadmap phases that remain parsed but are excluded from planning selectors and automatic current/next phase resolution.
-- Deterministic roadmap reconciliation states, reasoning and read-only update previews.
-- Deterministic `CHANGELOG.md` semantic-version parsing and reconciliation for common semantic-version headings.
-- Release-to-roadmap-phase association and reconciliation state in release history.
-- Roadmap-aware Release Builder context with manual scope selection preserved.
-- Focused release prompts containing detected version source, roadmap phase context, reconciliation warnings and changelog state.
-- GitHub synchronisation diagnostics including commit/roadmap SHAs, parse state, version source, CI state, changelog state and last error.
-- GitHub API rate-limit telemetry and per-project retry/backoff state.
-- Forward Alembic migration for reconciliation metadata and release-roadmap associations.
-- Backend tests for changelog parsing, roadmap reconciliation, phase overrides, ignored phases and migration safety.
-
-### Changed
-
-- Roadmap refresh now coalesces content and metadata retrieval and reuses unchanged source SHAs.
-- Background GitHub synchronisation now backs off after failures while allowing other projects to continue refreshing.
-- Last-known-good project data remains visible during temporary GitHub failures.
-- Project Details now shows version source, CI check counts, changelog state and roadmap reconciliation.
-- Roadmap phase details now include linked register items and planned/completed releases.
-- Application, frontend and Home Assistant add-on version metadata bumped to 0.4.1.
-
-### Preserved
-
-- `ROADMAP.md` and `CHANGELOG.md` remain authoritative and are never automatically rewritten.
-- Repository URL onboarding, project artwork and Portfolio dashboard design.
-- GitHub release/tag fallback, PR retrieval and CI/check aggregation.
-- Structured and Raw Markdown roadmap views and roadmap caching.
-- `PYTHONPATH=/app`, `alembic upgrade head`, aarch64 image support and startup smoke testing.

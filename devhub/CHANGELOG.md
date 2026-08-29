@@ -2,6 +2,14 @@
 
 This changelog is packaged with the DevHub Home Assistant app so release notes are visible from the Home Assistant app/add-on store. The repository-level `CHANGELOG.md` remains the detailed product changelog.
 
+## 0.5.6
+
+- Replaced the permanently expanded mobile navigation block with a compact hamburger drawer beside the DevHub brand.
+- Kept the Portfolio refresh and Create `+` actions in the compact mobile header.
+- Preserved desktop sidebar navigation and the compact two-column mobile Portfolio cards.
+- Added mobile navigation accessibility, Escape/outside-click dismissal and safe-area-aware drawer spacing.
+- Preserved Home Assistant ingress, Roadmap Intelligence, Evidence Intelligence and aarch64 startup protections.
+
 ## 0.5.5
 
 - Redesigned Portfolio around compact scan-first project cards with release, CI, next phase, PR and sync status visible at a glance.
@@ -37,6 +45,3 @@ This changelog is packaged with the DevHub Home Assistant app so release notes a
 - Added structured evidence summaries, observations and confidence information while retaining explicit user review before Register creation.
 
 ## 0.5.0
-
-- Added the first Assisted Requirements workflow for converting feedback and evidence into an editable requirement draft.
-- Added optional AI-assisted analysis while keeping the normal non-AI workflow available.
