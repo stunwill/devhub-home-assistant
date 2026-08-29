@@ -36,7 +36,9 @@ function rewriteApiImages(root: ParentNode = document): void {
   });
 }
 
-export function installIngressRouting(): void {
+export function installIngressRouting(): MutationObserver | null {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return null;
+
   const originalFetch = window.fetch.bind(window);
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => originalFetch(rewriteRequest(input), init)) as typeof window.fetch;
 
@@ -54,6 +56,5 @@ export function installIngressRouting(): void {
     }
   });
   observer.observe(document.documentElement, {childList: true, subtree: true, attributes: true, attributeFilter: ['src']});
+  return observer;
 }
-
-if (typeof window !== 'undefined' && typeof document !== 'undefined') installIngressRouting();
