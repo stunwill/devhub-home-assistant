@@ -48,7 +48,7 @@ def iso_utc(value: datetime | None):
         value = value.replace(tzinfo=timezone.utc)
     else:
         value = value.astimezone(timezone.utc)
-    return value.isoformat().replace('+00:00', 'Z')
+    return value.isoformat().replace("+00:00", "Z")
 
 
 def project_or_404(db: Session, project_id: int) -> Project:
@@ -111,6 +111,7 @@ def _choose_current_next(project: Project, phases: list[RoadmapPhase]) -> tuple[
     future_bucket = next((p for p in selectable if p.phase_type == "Future"), None)
     if not active:
         return None, future_bucket.id if future_bucket else None
+
     if project.roadmap_current_override and project.roadmap_current_phase_id and any(p.id == project.roadmap_current_phase_id for p in selectable):
         current = next(p for p in selectable if p.id == project.roadmap_current_phase_id)
     else:
@@ -124,6 +125,7 @@ def _choose_current_next(project: Project, phases: list[RoadmapPhase]) -> tuple[
                 historical = [(version_order_key(p.version), p) for p in active if version_order_key(p.version) and version_order_key(p.version) <= detected]
                 current = max(historical, key=lambda pair: pair[0])[1] if historical else None
             current = current or next((p for p in active if p.status == "Unknown"), active[-1])
+
     if project.roadmap_next_override and project.roadmap_next_phase_id and any(p.id == project.roadmap_next_phase_id for p in selectable):
         nxt = next(p for p in selectable if p.id == project.roadmap_next_phase_id)
     else:
@@ -277,9 +279,8 @@ async def assisted_requirements_analyse(payload: AssistedRequirementRequest, db:
     except Exception:
         raise HTTPException(502, "Assisted requirement analysis failed")
 
-@app.get("/api/projects")
-def projects(db: Session = Depends(get_db)):
-    return [project_payload(p) for p in db.scalars(select(Project).order_by(Project.name))]
+@app.get("/api/projects", response_model=list[ProjectOut])
+def projects(db: Session = Depends(get_db)): return list(db.scalars(select(Project).order_by(Project.name)))
 
 @app.post("/api/projects/discover")
 async def discover_project(payload: ProjectDiscover):
@@ -287,7 +288,7 @@ async def discover_project(payload: ProjectDiscover):
     except ValueError as exc: raise HTTPException(422, str(exc))
     except Exception as exc: raise HTTPException(502, f"GitHub discovery failed: {exc}")
 
-@app.post("/api/projects/from-url")
+@app.post("/api/projects/from-url", response_model=ProjectOut, status_code=201)
 async def create_project_from_url(payload: ProjectFromUrl, db: Session = Depends(get_db)):
     gh = GitHubService()
     try: data = await gh.discover_repository(payload.repository_url)
@@ -300,7 +301,7 @@ async def create_project_from_url(payload: ProjectFromUrl, db: Session = Depends
     db.add(p); db.commit(); db.refresh(p)
     try: await sync_project_record(p, db)
     except Exception: pass
-    db.refresh(p); return project_payload(p)
+    db.refresh(p); return p
 
 @app.post("/api/projects", response_model=ProjectOut, status_code=201)
 def create_project(payload: ProjectCreate, db: Session = Depends(get_db)):
@@ -465,73 +466,62 @@ def add_criterion(item_id:int,payload:dict,db:Session=Depends(get_db)):
 async def upload_attachments(item_id:int,files:list[UploadFile]=File(...),db:Session=Depends(get_db)):
     item_or_404(db,item_id); result=[]
     for f in files:
-        if f.content_type not in ALLOWED_TYPES: raise HTTPException(415,f"Unsupported file type: {f.content_type}")
+        if f.content_type not in ALLOWED_TYPES: raise HTTPException(415,f"Unsupported attachment type: {f.content_type}")
         data=await f.read(MAX_UPLOAD_BYTES+1)
-        if len(data)>MAX_UPLOAD_BYTES: raise HTTPException(413,f"{f.filename} exceeds 100 MB")
-        stored=f"{uuid.uuid4().hex}-{Path(f.filename or 'upload').name}"; (UPLOAD_DIR/stored).write_bytes(data); a=Attachment(register_item_id=item_id,original_name=Path(f.filename or 'upload').name,stored_name=stored,content_type=f.content_type,size_bytes=len(data)); db.add(a); db.commit(); db.refresh(a); result.append({"id":a.id,"name":a.original_name,"content_type":a.content_type,"size_bytes":a.size_bytes})
-    return result
+        if len(data)>MAX_UPLOAD_BYTES: raise HTTPException(413,"Attachment exceeds 100 MB limit")
+        safe=re.sub(r"[^A-Za-z0-9._-]","_",Path(f.filename or "file").name); stored=f"{uuid.uuid4().hex}_{safe}"; (UPLOAD_DIR/stored).write_bytes(data); a=Attachment(item_id=item_id,original_name=safe,stored_name=stored,content_type=f.content_type or "application/octet-stream",size_bytes=len(data)); db.add(a); db.flush(); result.append({"id":a.id,"name":safe,"content_type":a.content_type,"size_bytes":a.size_bytes})
+    db.commit(); return result
+
+@app.get("/api/attachments/{attachment_id}")
+def attachment(attachment_id:int,db:Session=Depends(get_db)):
+    a=db.get(Attachment,attachment_id)
+    if not a: raise HTTPException(404,"Attachment not found")
+    path=(UPLOAD_DIR/a.stored_name).resolve()
+    if UPLOAD_DIR.resolve() not in path.parents or not path.exists(): raise HTTPException(404,"Attachment file missing")
+    return FileResponse(path,media_type=a.content_type,filename=a.original_name)
 
 @app.get("/api/releases",response_model=list[ReleaseOut])
-def list_releases(db:Session=Depends(get_db)): return list(db.scalars(select(Release).order_by(Release.created_at.desc())))
+def list_releases(project_id:int|None=None,db:Session=Depends(get_db)):
+    stmt=select(Release).order_by(Release.created_at.desc())
+    if project_id: stmt=stmt.where(Release.project_id==project_id)
+    return list(db.scalars(stmt))
 
 @app.post("/api/releases",response_model=ReleaseOut,status_code=201)
 def create_release(payload:ReleaseCreate,db:Session=Depends(get_db)):
-    p=project_or_404(db,payload.project_id)
-    phase=None
+    project_or_404(db,payload.project_id)
     if payload.roadmap_phase_id:
         phase=db.get(RoadmapPhase,payload.roadmap_phase_id)
-        if not phase or phase.project_id!=p.id: raise HTTPException(422,"Roadmap phase does not belong to project")
-    r=Release(project_id=p.id,roadmap_phase_id=phase.id if phase else None,planned_version=payload.planned_version,status="Planned",notes=payload.notes); db.add(r); db.flush()
+        if not phase or phase.project_id!=payload.project_id or phase.ignored: raise HTTPException(422,"Roadmap phase is unavailable for this release")
+    r=Release(project_id=payload.project_id,planned_version=payload.planned_version,roadmap_phase_id=payload.roadmap_phase_id,notes=payload.notes); db.add(r); db.flush()
     for item_id in payload.item_ids:
         item=item_or_404(db,item_id)
-        if item.project_id!=p.id: raise HTTPException(422,"Release item project mismatch")
-        db.add(ReleaseItem(release_id=r.id,register_item_id=item.id))
+        if item.project_id!=payload.project_id: raise HTTPException(422,"Release item belongs to another project")
+        db.add(ReleaseItem(release_id=r.id,item_id=item_id))
     db.commit(); db.refresh(r); return r
 
-@app.put("/api/releases/{release_id}/status",response_model=ReleaseOut)
-def release_status(release_id:int,payload:dict,db:Session=Depends(get_db)):
-    r=db.get(Release,release_id)
+@app.get("/api/releases/{release_id}/reconciliation")
+async def release_reconciliation(release_id:int,db:Session=Depends(get_db)):
+    r=db.scalar(select(Release).options(selectinload(Release.roadmap_phase).selectinload(RoadmapPhase.items),selectinload(Release.roadmap_phase).selectinload(RoadmapPhase.register_items)).where(Release.id==release_id))
     if not r: raise HTTPException(404,"Release not found")
-    status=payload.get("status")
-    if status not in {"Planned","In Development","Ready for Test","Released"}: raise HTTPException(422,"Invalid status")
-    r.status=status
-    if status=="Released":
-        r.actual_version=payload.get("actual_version") or r.planned_version; r.release_url=payload.get("release_url") or r.release_url; r.pr_url=payload.get("pr_url") or r.pr_url; r.release_at=utcnow_naive(); r.roadmap_updated=bool(payload.get("roadmap_updated",r.roadmap_updated)); r.changelog_updated=bool(payload.get("changelog_updated",r.changelog_updated))
-    db.commit(); db.refresh(r); return r
+    p=project_or_404(db,r.project_id); changelog=await sync_changelog_record(p,db,force=False); result=reconcile_release(p.latest_version,r,r.roadmap_phase,changelog); r.roadmap_reconciliation_status=result["status"]; r.changelog_reconciliation_status=changelog.get("status"); db.commit(); return result
 
-@app.get("/api/releases/{release_id}/acceptance")
-def acceptance(release_id:int,db:Session=Depends(get_db)):
-    release=db.get(Release,release_id)
-    if not release: raise HTTPException(404,"Release not found")
-    rows=[]
-    for ri in release.items:
-        for c in ri.register_item.criteria:
-            result=db.scalar(select(AcceptanceTestResult).where(AcceptanceTestResult.release_id==release_id,AcceptanceTestResult.criterion_id==c.id)); rows.append({"criterion_id":c.id,"item_key":ri.register_item.item_key,"title":ri.register_item.title,"criterion":c.description,"status":result.status if result else "Not Tested","notes":result.notes if result else ""})
-    return rows
+@app.post("/api/releases/{release_id}/prompt")
+async def release_prompt(release_id:int,db:Session=Depends(get_db)):
+    r=db.scalar(select(Release).options(selectinload(Release.scope).selectinload(ReleaseItem.item).selectinload(RegisterItem.criteria),selectinload(Release.scope).selectinload(ReleaseItem.item).selectinload(RegisterItem.attachments),selectinload(Release.roadmap_phase).selectinload(RoadmapPhase.items)).where(Release.id==release_id))
+    if not r: raise HTTPException(404,"Release not found")
+    p=project_or_404(db,r.project_id); latest=db.scalar(select(RoadmapSnapshot).where(RoadmapSnapshot.project_id==p.id).order_by(RoadmapSnapshot.id.desc())); current=db.get(RoadmapPhase,p.roadmap_current_phase_id) if p.roadmap_current_phase_id else None; nxt=db.get(RoadmapPhase,p.roadmap_next_phase_id) if p.roadmap_next_phase_id else None
+    changelog=await sync_changelog_record(p,db,force=False); recon=await reconciliation_for_project(p,db)
+    structured={"current":_phase_dict(current,p.latest_version) if current else None,"current_source":"User confirmed" if p.roadmap_current_override else "Detected","next":_phase_dict(nxt,p.latest_version) if nxt else None,"next_source":"User override" if p.roadmap_next_override else "Detected","selected_release_phase":_phase_dict(r.roadmap_phase,p.latest_version) if r.roadmap_phase else None,"parse_status":latest.parse_status if latest else "Unknown","detected_release":p.latest_version,"version_source":json.loads(p.github_cache_json or "{}").get("version_source","Unknown"),"reconciliation":recon,"changelog":changelog}
+    return {"prompt":build_release_prompt(p,r,None,None,structured)}
 
-@app.put("/api/releases/{release_id}/acceptance/{criterion_id}")
-def acceptance_update(release_id:int,criterion_id:int,payload:TestResultUpdate,db:Session=Depends(get_db)):
+@app.put("/api/releases/{release_id}/tests/{criterion_id}")
+def update_test_result(release_id:int,criterion_id:int,payload:TestResultUpdate,db:Session=Depends(get_db)):
     if payload.status not in TEST_STATUSES: raise HTTPException(422,"Invalid test status")
     result=db.scalar(select(AcceptanceTestResult).where(AcceptanceTestResult.release_id==release_id,AcceptanceTestResult.criterion_id==criterion_id))
-    if not result: result=AcceptanceTestResult(release_id=release_id,criterion_id=criterion_id,status=payload.status,notes=payload.notes); db.add(result)
-    else: result.status=payload.status; result.notes=payload.notes
-    db.commit(); return {"status":result.status,"notes":result.notes}
+    if not result: result=AcceptanceTestResult(release_id=release_id,criterion_id=criterion_id); db.add(result)
+    result.status=payload.status; result.notes=payload.notes; db.commit(); return {"status":result.status,"notes":result.notes}
 
-@app.get("/api/releases/{release_id}/prompt")
-def release_prompt(release_id:int,db:Session=Depends(get_db)):
-    r=db.scalar(select(Release).options(selectinload(Release.items).selectinload(ReleaseItem.register_item).selectinload(RegisterItem.criteria),selectinload(Release.roadmap_phase).selectinload(RoadmapPhase.items)).where(Release.id==release_id))
-    if not r: raise HTTPException(404,"Release not found")
-    p=db.get(Project,r.project_id); latest=db.scalar(select(RoadmapSnapshot).where(RoadmapSnapshot.project_id==p.id).order_by(RoadmapSnapshot.id.desc())); context={"current_phase":None,"next_phase":None,"selected_phase":None,"reconciliation":None,"changelog":None}
-    phases=list(latest.phases) if latest else []
-    by_id={x.id:x for x in phases}
-    if p.roadmap_current_phase_id in by_id: context["current_phase"]=_phase_dict(by_id[p.roadmap_current_phase_id],p.latest_version)
-    if p.roadmap_next_phase_id in by_id: context["next_phase"]=_phase_dict(by_id[p.roadmap_next_phase_id],p.latest_version)
-    if r.roadmap_phase_id in by_id: context["selected_phase"]=_phase_dict(by_id[r.roadmap_phase_id],p.latest_version)
-    changelog={"status":p.changelog_status,"version":p.changelog_parsed_version}; context["changelog"]=changelog
-    return {"prompt":build_release_prompt(p,r,context)}
-
-@app.get("/{path:path}")
-def spa(path:str):
-    index=Path(__file__).resolve().parents[2]/"frontend"/"dist"/"index.html"
-    if index.exists(): return FileResponse(index)
-    return {"status":"DevHub backend running","frontend":"Run Vite for development"}
+FRONTEND_DIST=Path(__file__).resolve().parents[2]/"frontend"/"dist"
+if FRONTEND_DIST.exists():
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/",StaticFiles(directory=FRONTEND_DIST,html=True),name="frontend")
