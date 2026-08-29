@@ -2,7 +2,7 @@
 
 DevHub is a Home Assistant app for managing a portfolio of GitHub-developed applications. It combines release visibility, pull-request status, structured roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning, deterministic roadmap/release reconciliation and optional Assisted Requirements.
 
-## v0.5.0 capabilities
+## v0.5.1 capabilities
 
 - Home Assistant app packaging with ingress.
 - FastAPI backend, React/Vite frontend and SQLite persistence.
@@ -20,15 +20,19 @@ DevHub is a Home Assistant app for managing a portfolio of GitHub-developed appl
 - Roadmap-aware filtering and Next Release Builder suggestions without automatic scope selection.
 - Focused release prompts using current/next/selected phase, reconciliation and changelog context.
 - Optional Assisted Requirements workflow that converts feedback into an editable structured requirement draft.
-- Screenshot/photo evidence analysis for compatible multimodal providers, plus retained image/video evidence on confirmed Register items.
-- Deterministic duplicate/related candidate narrowing against same-project Register items.
+- Screenshot/photo evidence analysis for compatible multimodal providers.
+- Evidence Intelligence for screen recordings using bounded local FFmpeg/ffprobe preprocessing and representative frame extraction.
+- Structured evidence summaries, timestamped observations, confidence labels and ambiguity warnings displayed separately from the requirement draft.
+- Original image/video evidence uploaded only after explicit Register-item creation; transient extracted video frames are not persisted under `/config`.
+- Deterministic duplicate/related candidate narrowing with weighted structured-field matching and user-visible match explanations.
 - Suggested acceptance criteria, testing instructions, priority, item type and optional roadmap phase with explicit user review.
+- Non-secret AI provider capability reporting for text, image, multiple-image, direct-video, frame-based video and structured output support.
 - GitHub Release to Git tag version fallback with version-source tracking.
 - CI aggregation using GitHub check-runs and combined commit status.
 - GitHub synchronisation diagnostics with rate-limit and retry/backoff visibility.
 - Backend GitHub synchronisation approximately every 15 minutes, including when no browser is open.
 - Manual Refresh All, per-project refresh and Reparse Roadmap actions.
-- Raspberry Pi 5/aarch64 Home Assistant image build validation plus startup smoke testing in CI.
+- Raspberry Pi 5/aarch64 Home Assistant image build validation, media-processing smoke tests and startup smoke testing in CI.
 
 ## Architecture
 
@@ -42,10 +46,17 @@ Home Assistant
       -> backend synchronisation task
       -> deterministic roadmap/changelog parsers
       -> reconciliation service
-      -> optional Assisted Requirements provider service
+      -> Assisted Requirements service
+          -> EvidenceService
+              -> image preparation
+              -> FFmpeg/ffprobe video metadata + bounded frame extraction
+          -> deterministic duplicate/related candidate retrieval
+          -> optional AI provider service
 ```
 
 Runtime state is stored under the Home Assistant app configuration mapping (`/config` inside the app), so database, project icons, roadmap snapshots and feedback attachments survive container replacement/upgrades.
+
+Derived frames used during video analysis are temporary processing artefacts. They are created in a temporary directory, sent only as bounded image evidence where supported, and removed automatically when processing ends.
 
 ## Home Assistant installation
 
@@ -77,13 +88,14 @@ If AI is disabled or not configured, all existing DevHub functionality remains a
 
 ## Assisted Requirements
 
-The v0.5.0 workflow is deliberately assisted rather than autonomous:
+The workflow is deliberately assisted rather than autonomous:
 
 ```text
 Feedback
-  -> optional screenshots/photos/video evidence
-  -> Analyse & Draft Requirement
-  -> structured suggestion
+  -> optional screenshots/photos/screen-recording evidence
+  -> bounded evidence preprocessing
+  -> evidence summary and observations
+  -> structured requirement suggestion
   -> user review/edit
   -> explicit Create Register Item
 ```
@@ -100,23 +112,40 @@ DevHub may suggest:
 - a relevant current/next roadmap phase;
 - possible duplicate or related Register items.
 
-Every suggested field remains editable. Acceptance criteria can be added, removed and reordered. The user can discard the draft, cancel, choose a different roadmap phase, or continue without AI.
+Every suggested requirement field remains editable. Acceptance criteria can be added, removed and reordered. The user can discard the draft, cancel, choose a different roadmap phase, or continue without AI.
 
 Analysis alone never creates a Register item. It also never approves work, assigns release scope, changes roadmap state, edits `ROADMAP.md`/`CHANGELOG.md`, executes GitHub writes or performs a release.
 
-### Evidence handling
+### Evidence Intelligence
 
-Screenshot/photo evidence is sent to compatible OpenAI-style multimodal chat providers as image input, within a bounded analysis payload. Multiple selected files remain browser-side until the user explicitly creates the Register item, at which point the original files are uploaded through the existing attachment API.
+Images and screen recordings are handled as untrusted evidence rather than instructions.
 
-Video evidence is accepted and retained with the final Register item. Direct video understanding is not enabled in the initial v0.5.0 provider path. DevHub reports that limitation explicitly instead of claiming the recording was analysed.
+For screenshots/photos, DevHub sends a bounded set of image inputs to compatible multimodal providers. Multiple images can be analysed as a related evidence set.
 
-The analysis context is intentionally bounded to the supplied feedback, relevant project metadata, current/next roadmap context and a small local set of potential related Register items. DevHub does not send entire repositories, roadmaps, changelogs or the full Register to the AI provider.
+For supported screen recordings (`video/mp4`, QuickTime/MOV and WebM), DevHub does not send the full video to the provider. Instead it:
+
+1. validates and decodes the bounded analysis payload;
+2. inspects video metadata locally with `ffprobe`;
+3. analyses at most the first 120 seconds;
+4. extracts at most six representative frames with `ffmpeg`;
+5. scales extracted frames to at most 1280 pixels wide;
+6. sends those representative frames to an image-capable provider;
+7. asks for structured evidence observations and a concise evidence summary;
+8. deletes transient video/frame processing artefacts when analysis finishes.
+
+The video analysis payload is capped at 50 MB. Original Register attachments still use the existing attachment API and may be up to the normal 100 MB attachment limit.
+
+The current OpenAI/OpenAI-compatible Chat Completions path deliberately reports native/direct video support as unavailable. Video is analysed through bounded extracted frames instead of depending on undocumented direct-video behaviour.
+
+Evidence analysis is shown separately from the editable requirement draft. Observations may include a source filename, timestamp, confidence label and whether the statement is direct, inferred or ambiguous. DevHub explicitly instructs the model not to infer a technical root cause from symptoms unless the evidence actually supports it.
+
+Visible text in screenshots and video frames is treated as untrusted source material. It cannot trigger shell commands, GitHub writes, roadmap changes, Register creation or release execution.
 
 ### Duplicate and related detection
 
-Before model analysis, DevHub performs deterministic same-project token-overlap matching against structured Register fields. Stronger matches are shown as **Possible duplicate** and weaker matches as **Possibly related**.
+Before model analysis, DevHub performs deterministic same-project matching against structured Register fields including title, description, actual behaviour and expected behaviour. Matching uses weighted local similarity and returns a short explanation such as `similar title` or `similar actual behaviour`.
 
-These are advisory only in v0.5.0. DevHub does not automatically merge, reject or link work, and no database migration is introduced solely for relationships.
+Stronger matches are shown as **Possible duplicate** and weaker matches as **Possibly related**. These remain advisory in v0.5.1. DevHub does not automatically merge, reject or link work, and no database migration is introduced solely for relationships.
 
 ## Portfolio dashboard
 
@@ -170,11 +199,15 @@ Settings provides operational diagnostics including sync attempts, latest commit
 
 Frontend production assets use Vite `base: './'` so JS/CSS remain relative to the Home Assistant ingress path. CI explicitly rejects root-absolute `/assets/...` paths. The Assisted Requirements modal and existing dashboard layouts avoid page-level horizontal scrolling on portrait mobile.
 
+Evidence file names, capability notices, observation cards and requirement controls are designed to wrap within narrow mobile viewports rather than forcing page-level horizontal scrolling.
+
 ## Persistent data
 
 Runtime data that must not be committed includes SQLite data, roadmap/changelog cache metadata, project logos, uploaded screenshots/photos/videos and API credentials.
 
 DevHub stores feedback attachments in `/config/uploads`, project artwork in `/config/project-logos`, and SQLite at `/config/devhub.db`.
+
+Evidence-processing frames are transient and are not stored under `/config`.
 
 ## Development
 
@@ -189,6 +222,8 @@ python -m pytest backend/tests -q
 uvicorn backend.app.main:app --reload --port 8099
 ```
 
+Video Evidence Intelligence requires `ffmpeg` and `ffprobe` at runtime. They are installed in the production Home Assistant image.
+
 ### Frontend
 
 ```bash
@@ -202,18 +237,20 @@ npm run dev
 
 ## Database migrations
 
-Alembic is configured under `devhub/migrations`, and app startup runs `alembic upgrade head` before FastAPI. v0.5.0 does not require a new migration because Assisted Requirements drafts are non-persistent until explicit Register creation and duplicate/related relationships remain advisory.
+Alembic is configured under `devhub/migrations`, and app startup runs `alembic upgrade head` before FastAPI. v0.5.1 does not require a new migration because evidence analysis is transient and duplicate/related relationships remain advisory.
 
 ## CI and startup protection
 
 CI verifies:
 
-- backend tests including Assisted Requirements deterministic/mocked-provider tests;
+- backend tests including Assisted Requirements and Evidence Intelligence deterministic/mocked-provider tests;
 - frontend type/lint checks and tests;
 - frontend production build;
 - ingress-safe relative production asset paths;
 - Home Assistant manifest keeps `app_config`, aarch64 support and no deprecated `armv7` declaration;
 - aarch64 image build;
+- `ffmpeg` and `ffprobe` availability inside the production aarch64 image;
+- tiny deterministic video generation, metadata inspection and representative-frame extraction inside the aarch64 image;
 - aarch64 container startup and `/api/health` reporting the release version.
 
 ## Release process
