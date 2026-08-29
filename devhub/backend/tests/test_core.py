@@ -4,7 +4,7 @@ os.environ["DEVHUB_DATA_DIR"]="./test-data"
 from fastapi.testclient import TestClient
 from backend.app.database import Base, engine
 from backend.app.github_service import GitHubService
-from backend.app.main import app, iso_utc
+from backend.app.main import app, friendly_project_name, iso_utc
 from datetime import datetime
 
 client=TestClient(app)
@@ -13,7 +13,7 @@ def setup_module(): Base.metadata.drop_all(bind=engine); Base.metadata.create_al
 def teardown_module(): Base.metadata.drop_all(bind=engine)
 
 def test_health():
-    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.5.7'
+    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.5.8'
 
 def test_sync_summary_empty_portfolio():
     r=client.get('/api/projects/sync-summary')
@@ -32,6 +32,10 @@ def test_repository_url_parser():
     except ValueError:
         assert True
 
+def test_friendly_project_name():
+    assert friendly_project_name('devhub-home-assistant') == 'Devhub'
+    assert friendly_project_name('media-request-home-assistant') == 'Media Request'
+
 def test_iso_utc_marks_naive_values_as_utc():
     assert iso_utc(datetime(2026,8,30,0,25,0))=='2026-08-30T00:25:00Z'
 
@@ -47,6 +51,11 @@ def test_project_and_register_flow():
     pid=p.json()['id']
     assert p.json()['github_sync_status']=='Never'
     assert p.json()['roadmap_current_override'] is False
+    renamed=client.put(f'/api/projects/{pid}',json={"name":"Friendly App"})
+    assert renamed.status_code==200
+    assert renamed.json()['name']=='Friendly App'
+    assert renamed.json()['github_owner']=='owner'
+    assert renamed.json()['github_repo']=='repo'
     item=client.post('/api/register',json={"project_id":pid,"item_type":"Defect","title":"Mobile overflow","description":"Page scrolls sideways","priority":"High","status":"Approved","actual_behaviour":"Horizontal scroll","expected_behaviour":"No horizontal scroll","testing_instructions":"Test portrait mobile","criteria":[{"description":"No horizontal scrolling","sort_order":0}]})
     assert item.status_code==201
     assert item.json()['item_key']=='TA-DEF-0001'
@@ -55,6 +64,11 @@ def test_project_and_register_flow():
     release=client.post('/api/releases',json={"project_id":pid,"item_ids":[item.json()['id']]})
     assert release.status_code==201
     assert release.json()['roadmap_phase_id'] is None
+
+def test_blank_project_name_is_rejected():
+    project=client.get('/api/projects').json()[0]
+    r=client.put(f"/api/projects/{project['id']}",json={"name":"   "})
+    assert r.status_code==422
 
 def test_sync_summary_reports_unsynced_project():
     r=client.get('/api/projects/sync-summary')
@@ -75,6 +89,7 @@ def test_sync_diagnostics_contract():
     assert 'rate_limit' in rows.json()[0]
     assert 'roadmap_parse_state' in rows.json()[0]
     assert 'version_evidence' in rows.json()[0]
+    assert 'ci_commit_sha' in rows.json()[0]
 
 def test_assisted_requirements_status_disabled_by_default():
     os.environ.pop('DEVHUB_AI_API_KEY',None)

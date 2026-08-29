@@ -189,20 +189,28 @@ class GitHubService:
 
     async def combined_status(self, owner: str, repo: str, sha: str | None):
         if not sha:
-            return {"state": "unknown", "statuses": [], "checks": []}
+            return {"state": "unknown", "statuses": [], "checks": [], "commit_sha": None}
         status_data = await self._get(f"/repos/{owner}/{repo}/commits/{sha}/status") or {}
         checks_data = await self._get(f"/repos/{owner}/{repo}/commits/{sha}/check-runs?per_page=100") or {}
         checks = checks_data.get("check_runs") or []
+        statuses = status_data.get("statuses", []) or []
         conclusions = [c.get("conclusion") for c in checks if c.get("status") == "completed"]
         running = any(c.get("status") in {"queued", "in_progress", "requested", "waiting", "pending"} for c in checks)
         failing = any(c in {"failure", "cancelled", "timed_out", "action_required", "startup_failure"} for c in conclusions)
-        passing = bool(checks) and all(c in {"success", "neutral", "skipped"} for c in conclusions) and not running
+        passing_checks = bool(checks) and all(c in {"success", "neutral", "skipped"} for c in conclusions) and not running
         combined = status_data.get("state", "unknown")
-        if failing or combined in {"failure", "error"}: state = "failure"
-        elif running or combined == "pending": state = "pending"
-        elif passing or combined == "success": state = "success"
-        else: state = "unknown"
-        return {"state": state, "statuses": status_data.get("statuses", []), "checks": [{"name": c.get("name"), "status": c.get("status"), "conclusion": c.get("conclusion"), "url": c.get("html_url")} for c in checks]}
+        has_statuses = bool(statuses)
+        if failing or combined in {"failure", "error"}:
+            state = "failure"
+        elif running:
+            state = "pending"
+        elif checks:
+            state = "success" if passing_checks else "unknown"
+        elif has_statuses:
+            state = combined if combined in {"success", "pending", "failure", "error"} else "unknown"
+        else:
+            state = "unknown"
+        return {"state": state, "statuses": statuses, "checks": [{"name": c.get("name"), "status": c.get("status"), "conclusion": c.get("conclusion"), "url": c.get("html_url")} for c in checks], "commit_sha": sha}
 
     async def detect_path(self, owner: str, repo: str, ref: str, candidates: list[str]):
         for path in candidates:

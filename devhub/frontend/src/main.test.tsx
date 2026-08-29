@@ -12,14 +12,16 @@ globalThis.fetch = vi.fn(async (url: RequestInfo | URL) => ({
 vi.mock('./main.tsx', () => ({}));
 
 describe('DevHub frontend contract', () => {
-  it('keeps Portfolio Intelligence and assisted requirements wording available', async () => {
+  it('keeps Portfolio corrections and assisted requirements wording available', async () => {
     const source = await import('./uiContract');
     render(<div>{source.navigation.join(' ')} {source.feedbackLabel} {source.portfolioLabels.join(' ')} {source.roadmapIntelligenceLabels.join(' ')} {source.reconciliationLabels.join(' ')} {source.assistedRequirementsLabels.join(' ')}</div>);
     expect(screen.getByText(/Portfolio/)).toBeInTheDocument();
     expect(screen.getByText(/Refresh all projects/)).toBeInTheDocument();
-    expect(screen.getByText(/Create/)).toBeInTheDocument();
-    expect(screen.getByText(/CI attention/)).toBeInTheDocument();
+    expect(screen.getByText(/Refreshing projects/)).toBeInTheDocument();
+    expect(screen.getByText(/Updated just now/)).toBeInTheDocument();
     expect(screen.getByText(/OPEN PR/)).toBeInTheDocument();
+    expect(screen.getByText(/Open pull request/)).toBeInTheDocument();
+    expect(screen.getByText(/Edit name/)).toBeInTheDocument();
     expect(screen.getByText(/Version evidence/)).toBeInTheDocument();
     expect(screen.getByText(/Roadmap Intelligence/)).toBeInTheDocument();
     expect(screen.getByText(/Analyse & Draft Requirement/)).toBeInTheDocument();

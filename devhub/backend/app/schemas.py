@@ -27,6 +27,10 @@ class ProjectCreate(BaseModel):
     changelog_path: str = "CHANGELOG.md"
     active: bool = True
 
+class ProjectUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    active: bool | None = None
+
 class ProjectOut(ProjectCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -218,9 +222,4 @@ class AssistedRequirementDraft(BaseModel):
     @field_validator("acceptance_criteria")
     @classmethod
     def clean_criteria(cls, value: list[str]) -> list[str]:
-        result = []
-        for item in value:
-            text = str(item).strip()
-            if text:
-                result.append(text[:1000])
-        return result[:20]
+        return [item.strip() for item in value if item.strip()]
