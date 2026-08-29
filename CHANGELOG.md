@@ -2,6 +2,39 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.5.5] - 2026-08-29
+
+### Changed
+
+- Redesigned the Portfolio Dashboard around compact, scan-first project cards instead of tall detail-heavy cards.
+- Replaced the large Refresh All control with an accessible refresh icon in the Portfolio header.
+- Consolidated Add Project and Add Feedback behind one Create `+` action with a compact desktop popover and mobile bottom sheet.
+- Added portfolio-level summary metrics for total projects, CI attention, open pull requests and release metadata gaps.
+- Added compact card summaries for release, CI status, next roadmap phase, open PR count and sync freshness.
+- Added per-project accordion details for repository metadata, release source, last merged PR, roadmap context and existing Roadmap / Project Details actions.
+- Missing release metadata and other attention states now receive stronger visual emphasis than normal zero/healthy states.
+- Project display names remain sourced from DevHub project configuration instead of being hard-coded from repository names.
+
+### Responsive UX
+
+- Portfolio cards render three across on normal desktop widths and four on very wide screens.
+- Tablet and medium desktop widths use two columns.
+- Mobile widths use two compact cards across when there is sufficient room, with a single-column fallback below 420 px.
+- Long project names, phase labels and PR titles are clamped or wrapped so the page cannot be widened by card content.
+- Mobile Create uses a safe-area-aware bottom sheet and the compact summary strip can scroll horizontally if necessary.
+
+### Regression protection
+
+- Added frontend contract coverage for Portfolio header actions, summary metrics, missing-release warnings and accordion terminology.
+- Added CI source safeguards for the compact Portfolio controls, responsive two-column grid and narrow-screen fallback.
+- Preserved existing Home Assistant ingress asset/API routing checks, backend tests, Evidence Intelligence media checks and aarch64 build/startup smoke testing.
+
+### Release scope
+
+- Application, frontend and Home Assistant app version metadata updated consistently to 0.5.5.
+- No database migration is required because this release reuses existing project, GitHub and roadmap data.
+- No Release Execution functionality is included.
+
 ## [0.5.4] - 2026-08-29
 
 ### Fixed
