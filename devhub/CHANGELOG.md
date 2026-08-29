@@ -2,6 +2,15 @@
 
 This changelog is packaged with the DevHub Home Assistant app so release notes are visible from the Home Assistant app/add-on store. The repository-level `CHANGELOG.md` remains the detailed product changelog.
 
+## 0.5.7
+
+- Fixed synchronisation timestamps so newly refreshed projects display accurate relative times instead of appearing hours old in local time zones.
+- Added deterministic release-version fallback through GitHub Release, Git tag, Home Assistant manifest, CHANGELOG, frontend package metadata and backend APP_VERSION evidence.
+- Prioritised Portfolio cards by actionable pull-request activity, with open-PR projects first and oldest waiting work first.
+- Added prominent amber OPEN PR chips while keeping zero-PR states visually muted.
+- Added version evidence and open-PR detail to diagnostics while preserving the compact Portfolio layout.
+- Preserved Home Assistant ingress, mobile navigation, Roadmap Intelligence, Evidence Intelligence and aarch64 startup protections.
+
 ## 0.5.6
 
 - Replaced the permanently expanded mobile navigation block with a compact hamburger drawer beside the DevHub brand.
