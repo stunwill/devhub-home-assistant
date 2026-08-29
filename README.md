@@ -2,6 +2,23 @@
 
 DevHub is a Home Assistant app for managing a portfolio of GitHub-developed applications. It combines release visibility, pull-request status, structured roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning, deterministic roadmap/release reconciliation and optional Assisted Requirements.
 
+## Repository metadata contract
+
+DevHub works best when managed repositories expose a small, predictable set of release and planning metadata. These conventions are preferred first-class inputs rather than hard requirements, so DevHub may still support other valid repository structures where discovery is possible.
+
+Preferred conventions:
+
+- `main` or the repository's configured default branch is the authoritative release branch.
+- `ROADMAP.md` at repository root is the authoritative development roadmap and uses simple version/phase headings plus Markdown task lists where practical.
+- `CHANGELOG.md` at repository root is the detailed project/GitHub changelog.
+- Home Assistant app/add-on repositories also maintain an app-local `CHANGELOG.md` beside the Home Assistant `config.yaml` so release notes are visible in Home Assistant.
+- Semantic versions use one consistent release value across required application metadata such as Home Assistant `config.yaml`, frontend `package.json`, backend application version and `/api/health` where those locations exist.
+- Actual releases use semantic Git tags such as `v0.5.3` and should publish a GitHub Release with concise release notes derived from the final changelog entry.
+- GitHub Actions/check-runs should run against the default branch and release PRs so DevHub can report CI state.
+- Release CI should verify version consistency and confirm the root and Home Assistant changelogs contain the release version where applicable.
+
+DevHub-generated release prompts require roadmap reconciliation, root changelog updates, Home Assistant changelog updates where applicable, semantic version consistency, GitHub Release notes, and post-merge verification of Git tag/GitHub Release state.
+
 ## v0.5.1 capabilities
 
 - Home Assistant app packaging with ingress.
