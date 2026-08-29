@@ -20,10 +20,10 @@ from .github_service import GitHubService
 from .models import AcceptanceCriterion, AcceptanceTestResult, Attachment, Project, RegisterItem, Release, ReleaseItem, RoadmapItem, RoadmapPhase, RoadmapSnapshot
 from .prompt_builder import build_release_prompt
 from .reconciliation import compare_changelog, reconcile_release
-from .roadmap_parser import parse_roadmap
+from .roadmap_parser import lifecycle_status, parse_roadmap, semantic_version, version_contains, version_order_key
 from .schemas import AssistedRequirementDraft, AssistedRequirementRequest, ProjectCreate, ProjectDiscover, ProjectFromUrl, ProjectOut, RegisterItemCreate, RegisterItemOut, RegisterItemUpdate, ReleaseCreate, ReleaseOut, TestResultUpdate, TEST_STATUSES
 
-APP_VERSION = "0.5.3"
+APP_VERSION = "0.5.4"
 DATA_DIR = Path(os.getenv("DEVHUB_DATA_DIR", "./data"))
 UPLOAD_DIR = DATA_DIR / "uploads"
 PROJECT_LOGO_DIR = DATA_DIR / "project-logos"
@@ -72,13 +72,14 @@ def open_pr_summary(prs: list[dict]) -> list[dict]:
     return [{"number": p.get("number"), "title": p.get("title"), "url": p.get("html_url"), "created_at": p.get("created_at"), "updated_at": p.get("updated_at"), "draft": bool(p.get("draft")), "head": (p.get("head") or {}).get("ref")} for p in prs]
 
 
-def _phase_dict(phase: RoadmapPhase) -> dict:
+def _phase_dict(phase: RoadmapPhase, detected_version: str | None = None) -> dict:
     return {
         "id": phase.id,
         "version": phase.version,
         "title": phase.title,
         "phase_type": phase.phase_type,
         "status": phase.status,
+        "lifecycle_status": lifecycle_status(phase, detected_version),
         "sort_order": phase.sort_order,
         "heading_level": phase.heading_level,
         "raw_heading": phase.raw_heading,
@@ -91,19 +92,36 @@ def _phase_dict(phase: RoadmapPhase) -> dict:
 
 
 def _choose_current_next(project: Project, phases: list[RoadmapPhase]) -> tuple[int | None, int | None]:
-    active = [p for p in phases if not p.ignored and p.phase_type != "Future"]
+    selectable = [p for p in phases if not p.ignored]
+    active = [p for p in selectable if p.phase_type != "Future"]
+    future_bucket = next((p for p in selectable if p.phase_type == "Future"), None)
     if not active:
-        return None, None
-    if project.roadmap_current_override and project.roadmap_current_phase_id and any(p.id == project.roadmap_current_phase_id for p in active):
-        current = next(p for p in active if p.id == project.roadmap_current_phase_id)
+        return None, future_bucket.id if future_bucket else None
+
+    if project.roadmap_current_override and project.roadmap_current_phase_id and any(p.id == project.roadmap_current_phase_id for p in selectable):
+        current = next(p for p in selectable if p.id == project.roadmap_current_phase_id)
     else:
-        exact = next((p for p in active if project.latest_version and p.version and p.version.lower() == project.latest_version.lower()), None)
-        current = exact or next((p for p in active if p.status in {"In Progress", "Unknown"}), active[-1])
-    if project.roadmap_next_override and project.roadmap_next_phase_id and any(p.id == project.roadmap_next_phase_id for p in active):
-        nxt = next(p for p in active if p.id == project.roadmap_next_phase_id)
+        detected = semantic_version(project.latest_version)
+        exact_or_band = next((p for p in active if detected and version_contains(p.version, project.latest_version)), None)
+        if exact_or_band:
+            current = exact_or_band
+        else:
+            current = next((p for p in active if p.status == "In Progress"), None)
+            if not current and detected:
+                historical = [(version_order_key(p.version), p) for p in active if version_order_key(p.version) and version_order_key(p.version) <= detected]
+                current = max(historical, key=lambda pair: pair[0])[1] if historical else None
+            current = current or next((p for p in active if p.status == "Unknown"), active[-1])
+
+    if project.roadmap_next_override and project.roadmap_next_phase_id and any(p.id == project.roadmap_next_phase_id for p in selectable):
+        nxt = next(p for p in selectable if p.id == project.roadmap_next_phase_id)
     else:
-        later = [p for p in active if p.sort_order > current.sort_order]
-        nxt = later[0] if later else next((p for p in phases if p.phase_type == "Future" and not p.ignored), None)
+        current_key = version_order_key(current.version) if current and current.phase_type != "Future" else semantic_version(project.latest_version)
+        if current and version_contains(current.version, project.latest_version):
+            current_key = semantic_version(project.latest_version) or current_key
+        candidates = []
+        if current_key:
+            candidates = [(version_order_key(p.version), p) for p in active if version_order_key(p.version) and version_order_key(p.version) > current_key]
+        nxt = min(candidates, key=lambda pair: pair[0])[1] if candidates else future_bucket
     return current.id if current else None, nxt.id if nxt else None
 
 
@@ -123,7 +141,7 @@ async def sync_roadmap_record(p: Project, db: Session, force: bool = False):
     latest = db.scalar(select(RoadmapSnapshot).where(RoadmapSnapshot.project_id == p.id).order_by(RoadmapSnapshot.id.desc()))
     if latest and not force and meta and latest.source_sha == meta.get("sha"):
         _sync_phase_selection(p, list(latest.phases)); db.commit()
-        return {"status": latest.parse_status, "snapshot_id": latest.id, "phases": [_phase_dict(x) for x in latest.phases], "warnings": []}
+        return {"status": latest.parse_status, "snapshot_id": latest.id, "phases": [_phase_dict(x, p.latest_version) for x in latest.phases], "warnings": []}
     previous_ignored = {(x.version or "", x.title): x.ignored for x in (latest.phases if latest else [])}
     parsed = parse_roadmap(text)
     snapshot = RoadmapSnapshot(project_id=p.id, source_path=p.roadmap_path, source_sha=(meta or {}).get("sha"), markdown_text=text, fetched_at=datetime.utcnow(), parsed_at=datetime.utcnow(), parse_status=parsed["status"], parse_error="; ".join(parsed.get("warnings") or []) or None)
@@ -137,7 +155,7 @@ async def sync_roadmap_record(p: Project, db: Session, force: bool = False):
             db.add(RoadmapItem(roadmap_phase_id=phase.id, text=item["text"], completed=bool(item.get("completed")), sort_order=item.get("sort_order", 0)))
         phases.append(phase)
     db.flush(); _sync_phase_selection(p, phases); db.commit()
-    return {"status": parsed["status"], "snapshot_id": snapshot.id, "phases": [_phase_dict(x) for x in phases], "warnings": parsed.get("warnings") or []}
+    return {"status": parsed["status"], "snapshot_id": snapshot.id, "phases": [_phase_dict(x, p.latest_version) for x in phases], "warnings": parsed.get("warnings") or []}
 
 
 async def sync_changelog_record(p: Project, db: Session, force: bool = False):
@@ -310,8 +328,8 @@ async def roadmap_intelligence(project_id:int,db:Session=Depends(get_db)):
         except Exception as exc: return {"status":"Error","error":str(exc),"phases":[]}
         latest=db.scalar(select(RoadmapSnapshot).where(RoadmapSnapshot.project_id==p.id).order_by(RoadmapSnapshot.id.desc()))
     if not latest: return {"status":"Missing","phases":[]}
-    phases=list(latest.phases); detected_current,detected_next=_choose_current_next(Project(latest_version=p.latest_version),phases)
-    return {"status":latest.parse_status,"snapshot_id":latest.id,"source_path":latest.source_path,"source_sha":latest.source_sha,"fetched_at":latest.fetched_at,"parsed_at":latest.parsed_at,"error":latest.parse_error,"current_phase_id":p.roadmap_current_phase_id,"next_phase_id":p.roadmap_next_phase_id,"current_phase_source":"User confirmed" if p.roadmap_current_override else "Detected","next_phase_source":"User override" if p.roadmap_next_override else "Detected","detected_current_phase_id":detected_current,"detected_next_phase_id":detected_next,"phases":[_phase_dict(x) for x in phases]}
+    phases=list(latest.phases); detected_project=Project(latest_version=p.latest_version); detected_current,detected_next=_choose_current_next(detected_project,phases)
+    return {"status":latest.parse_status,"snapshot_id":latest.id,"source_path":latest.source_path,"source_sha":latest.source_sha,"fetched_at":latest.fetched_at,"parsed_at":latest.parsed_at,"error":latest.parse_error,"current_phase_id":p.roadmap_current_phase_id,"next_phase_id":p.roadmap_next_phase_id,"current_phase_source":"User confirmed" if p.roadmap_current_override else "Detected","next_phase_source":"User override" if p.roadmap_next_override else "Detected","detected_current_phase_id":detected_current,"detected_next_phase_id":detected_next,"phases":[_phase_dict(x,p.latest_version) for x in phases]}
 
 @app.post("/api/projects/{project_id}/roadmap/reparse")
 async def reparse_roadmap(project_id:int,db:Session=Depends(get_db)): return await sync_roadmap_record(project_or_404(db,project_id),db,force=True)
@@ -339,13 +357,14 @@ def update_roadmap_phase(phase_id:int,payload:dict,db:Session=Depends(get_db)):
     if payload.get("status") in {"Completed","In Progress","Planned","Future","Unknown"}: phase.status=payload["status"]
     p=db.get(Project,phase.project_id); latest=db.scalar(select(RoadmapSnapshot).where(RoadmapSnapshot.project_id==p.id).order_by(RoadmapSnapshot.id.desc()))
     if latest: _sync_phase_selection(p,list(latest.phases))
-    db.commit(); return _phase_dict(phase)
+    db.commit(); return _phase_dict(phase,p.latest_version)
 
 @app.get("/api/roadmap/phases/{phase_id}")
 def roadmap_phase_detail(phase_id:int,db:Session=Depends(get_db)):
     phase=db.scalar(select(RoadmapPhase).options(selectinload(RoadmapPhase.items),selectinload(RoadmapPhase.register_items),selectinload(RoadmapPhase.releases)).where(RoadmapPhase.id==phase_id))
     if not phase: raise HTTPException(404,"Roadmap phase not found")
-    return _phase_dict(phase)
+    p=db.get(Project,phase.project_id)
+    return _phase_dict(phase,p.latest_version if p else None)
 
 @app.get("/api/projects/{project_id}/changelog/reconciliation")
 async def changelog_reconciliation(project_id:int,db:Session=Depends(get_db)): return await sync_changelog_record(project_or_404(db,project_id),db,force=False)
@@ -478,7 +497,7 @@ async def release_prompt(release_id:int,db:Session=Depends(get_db)):
     if not r: raise HTTPException(404,"Release not found")
     p=project_or_404(db,r.project_id); latest=db.scalar(select(RoadmapSnapshot).where(RoadmapSnapshot.project_id==p.id).order_by(RoadmapSnapshot.id.desc())); current=db.get(RoadmapPhase,p.roadmap_current_phase_id) if p.roadmap_current_phase_id else None; nxt=db.get(RoadmapPhase,p.roadmap_next_phase_id) if p.roadmap_next_phase_id else None
     changelog=await sync_changelog_record(p,db,force=False); recon=await reconciliation_for_project(p,db)
-    structured={"current":_phase_dict(current) if current else None,"current_source":"User confirmed" if p.roadmap_current_override else "Detected","next":_phase_dict(nxt) if nxt else None,"next_source":"User override" if p.roadmap_next_override else "Detected","selected_release_phase":_phase_dict(r.roadmap_phase) if r.roadmap_phase else None,"parse_status":latest.parse_status if latest else "Unknown","detected_release":p.latest_version,"version_source":json.loads(p.github_cache_json or "{}").get("version_source","Unknown"),"reconciliation":recon,"changelog":changelog}
+    structured={"current":_phase_dict(current,p.latest_version) if current else None,"current_source":"User confirmed" if p.roadmap_current_override else "Detected","next":_phase_dict(nxt,p.latest_version) if nxt else None,"next_source":"User override" if p.roadmap_next_override else "Detected","selected_release_phase":_phase_dict(r.roadmap_phase,p.latest_version) if r.roadmap_phase else None,"parse_status":latest.parse_status if latest else "Unknown","detected_release":p.latest_version,"version_source":json.loads(p.github_cache_json or "{}").get("version_source","Unknown"),"reconciliation":recon,"changelog":changelog}
     return {"prompt":build_release_prompt(p,r,None,None,structured)}
 
 @app.put("/api/releases/{release_id}/tests/{criterion_id}")

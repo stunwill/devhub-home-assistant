@@ -53,21 +53,31 @@ def reconcile_release(project_version: str | None, release, phase, changelog_sta
     planned = normalise_version(getattr(release, "planned_version", None)) if release else None
     actual = normalise_version(getattr(release, "actual_version", None)) if release else None
     release_match = "Unable to determine"
+    release_history_status = "Unknown"
     reasons: list[str] = []
     if detected and release:
         candidate = actual or planned
         if candidate == detected:
             release_match = "Matched"
+            release_history_status = "Current release recorded in DevHub"
         elif candidate:
             release_match = "Review required"
+            release_history_status = "DevHub release record differs from repository"
             reasons.append(f"DevHub release {candidate} does not match detected GitHub version {detected}.")
     elif detected:
-        reasons.append(f"Detected GitHub version {detected} has no matching DevHub release record.")
+        release_history_status = f"Release record missing for v{detected}"
+        reasons.append(f"Repository release v{detected} is detected, but DevHub has no matching internal release record.")
 
     roadmap_items = list(getattr(phase, "items", []) or []) if phase else []
     linked = list(getattr(phase, "register_items", []) or []) if phase else []
     completed_linked = [i for i in linked if getattr(i, "status", "") in {"Released", "Passed"} or getattr(i, "completed_release", None)]
     incomplete_roadmap = [i for i in roadmap_items if not getattr(i, "completed", False)]
+
+    repository_state = "Unable to determine"
+    if detected and phase and normalise_version(getattr(phase, "version", None)) == detected and not incomplete_roadmap and changelog_state.get("status") == "Current":
+        repository_state = "Reconciled"
+    elif detected and phase:
+        repository_state = "Review recommended"
 
     if not detected:
         overall = "Unable to determine"
@@ -82,6 +92,8 @@ def reconcile_release(project_version: str | None, release, phase, changelog_sta
         reasons.append(f"CHANGELOG.md state is {changelog_state.get('status')}.")
     elif release_match == "Matched" and phase:
         overall = "Reconciled"
+    elif repository_state == "Reconciled" and not release:
+        overall = "Reconciliation recommended"
     else:
         overall = "Reconciliation recommended"
 
@@ -92,6 +104,8 @@ def reconcile_release(project_version: str | None, release, phase, changelog_sta
     }
     return {
         "status": overall,
+        "repository_state": repository_state,
+        "release_history_status": release_history_status,
         "detected_version": detected,
         "planned_version": planned,
         "actual_version": actual,
