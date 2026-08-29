@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 ITEM_TYPES = ["Defect", "Enhancement", "UX Improvement", "Technical Debt", "Performance", "Security", "Documentation"]
@@ -141,7 +142,7 @@ class AssistedAttachment(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     content_type: str = Field(min_length=1, max_length=120)
     size_bytes: int = Field(default=0, ge=0, le=100 * 1024 * 1024)
-    data_base64: str = Field(default="", max_length=18_000_000)
+    data_base64: str = Field(default="", max_length=72_000_000)
 
 class AssistedRequirementRequest(BaseModel):
     project_id: int
@@ -157,6 +158,20 @@ class CandidateItem(BaseModel):
     priority: str
     roadmap_phase_id: int | None = None
     score: float = 0
+    match_reason: str | None = None
+
+class EvidenceObservation(BaseModel):
+    source: str = Field(min_length=1, max_length=255)
+    timestamp: str | None = Field(default=None, max_length=16)
+    observation: str = Field(min_length=1, max_length=2000)
+    confidence: Literal["High", "Moderate", "Low", "Unable to determine"] = "Moderate"
+    evidence_type: Literal["direct", "inferred", "ambiguous"] = "direct"
+
+class EvidenceAnalysis(BaseModel):
+    summary: str = Field(default="", max_length=8000)
+    analysed_sources: list[str] = Field(default_factory=list, max_length=12)
+    observations: list[EvidenceObservation] = Field(default_factory=list, max_length=30)
+    warnings: list[str] = Field(default_factory=list, max_length=20)
 
 class AssistedRequirementDraft(BaseModel):
     title: str = Field(min_length=1, max_length=240)
@@ -170,6 +185,7 @@ class AssistedRequirementDraft(BaseModel):
     suggested_roadmap_phase_id: int | None = None
     duplicate_candidates: list[CandidateItem] = Field(default_factory=list, max_length=8)
     related_candidates: list[CandidateItem] = Field(default_factory=list, max_length=8)
+    evidence: EvidenceAnalysis = Field(default_factory=EvidenceAnalysis)
     warnings: list[str] = Field(default_factory=list, max_length=20)
 
     @field_validator("item_type")

@@ -106,13 +106,24 @@ First Assisted Requirements capability delivered in v0.5.0:
 - Validated structured model output and focused model context rather than whole roadmap/changelog/register dumps.
 - Mobile-responsive assisted review UI and explicit CI regression checks for ingress-safe frontend assets.
 
+Evidence Intelligence delivered in v0.5.1:
+
+- Bounded local preprocessing for uploaded screen recordings using FFmpeg/ffprobe.
+- Representative frame extraction with explicit limits on duration, payload size, frame count and frame dimensions.
+- Structured evidence summaries, source-aware observations, timestamps, confidence labels and ambiguity warnings shown separately from the editable requirement draft.
+- Frame-based video analysis through image-capable providers without claiming undocumented native video support.
+- Provider capability reporting for text, image, multiple-image, direct-video, frame-based video and structured output support.
+- Transient derived frames that are not persisted under `/config`; original evidence remains authoritative and is attached only after explicit Register creation.
+- Evidence-aware prompting that treats visible screenshot/video text as untrusted source material and avoids unsupported root-cause claims.
+- Improved deterministic duplicate/related-item ranking with weighted structured fields and user-visible match explanations.
+- ARM64 production-image validation for FFmpeg/ffprobe and a tiny end-to-end frame extraction smoke test.
+
 Remaining v0.5.x opportunities:
 
-- Direct provider-supported video understanding rather than retaining video only as review evidence.
-- Richer evidence preprocessing where it materially improves reliability.
 - User-confirmed persisted `duplicate of` / `related to` relationships if advisory detection proves valuable in real usage.
-- More sophisticated local similarity ranking and confidence explanation based on representative Register data.
+- Additional refinement of similarity ranking based on representative Register data.
 - Additional AI providers where demand justifies them.
+- Direct native provider video input only where a documented, reliable provider path justifies it over bounded frame extraction.
 
 ## v0.6.x Release Execution
 

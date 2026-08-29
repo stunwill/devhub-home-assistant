@@ -1,3 +1,4 @@
+import base64
 import os
 from unittest.mock import AsyncMock, patch
 
@@ -8,8 +9,10 @@ os.environ["DEVHUB_DATA_DIR"] = "./test-assisted-data"
 
 from backend.app.assisted_requirements import candidate_items
 from backend.app.database import Base, SessionLocal, engine
+from backend.app.evidence import EvidenceService, MAX_VIDEO_FRAMES, provider_capabilities
 from backend.app.main import app
 from backend.app.models import Project, RoadmapPhase, RoadmapSnapshot
+from backend.app.schemas import AssistedAttachment
 
 client = TestClient(app)
 
@@ -48,6 +51,7 @@ def valid_draft(phase_id=None):
         "acceptance_criteria": ["The page does not horizontally scroll at 390 px."],
         "testing_instructions": "Open through Home Assistant ingress at 390 px and verify no horizontal scrolling.",
         "suggested_roadmap_phase_id": phase_id,
+        "evidence": {"summary": "The supplied evidence shows horizontal overflow.", "analysed_sources": ["screen.png"], "observations": [{"source": "screen.png", "observation": "Content extends beyond the viewport.", "confidence": "High", "evidence_type": "direct"}], "warnings": []},
         "warnings": [],
     }
 
@@ -91,7 +95,9 @@ def test_duplicate_candidates_are_deterministic_and_local():
     try:
         duplicates, related = candidate_items(db, project_id, "Mobile horizontal overflow page scrolls sideways beyond viewport")
         assert duplicates or related
-        assert (duplicates + related)[0].item_key == existing.json()["item_key"]
+        candidate = (duplicates + related)[0]
+        assert candidate.item_key == existing.json()["item_key"]
+        assert candidate.match_reason
     finally:
         db.close()
 
@@ -146,3 +152,45 @@ def test_unsupported_evidence_type_is_reported():
         })
     assert response.status_code == 200
     assert any("unsupported evidence type" in warning.lower() for warning in response.json()["warnings"])
+
+
+def test_status_exposes_non_secret_provider_capabilities():
+    response = client.get('/api/assisted-requirements/status')
+    assert response.status_code == 200
+    body = response.json()
+    assert body["capabilities"]["images"] is True
+    assert body["capabilities"]["direct_video"] is False
+    assert body["capabilities"]["video_frames"] is True
+    assert "api_key" not in body
+
+
+def test_video_frame_selection_is_bounded():
+    service = EvidenceService(ffmpeg="ffmpeg", ffprobe="ffprobe")
+    timestamps = service._timestamps(120, MAX_VIDEO_FRAMES)
+    assert len(timestamps) == MAX_VIDEO_FRAMES
+    assert timestamps[0] == 0
+    assert timestamps[-1] < 120
+
+
+def test_video_without_media_tools_returns_explicit_warning():
+    service = EvidenceService(ffmpeg="", ffprobe="")
+    attachment = AssistedAttachment(name="recording.mp4", content_type="video/mp4", size_bytes=4, data_base64=base64.b64encode(b"test").decode())
+    prepared = service.prepare([attachment])
+    assert prepared.evidence_items[0]["kind"] == "video"
+    assert any("ffmpeg" in warning.lower() for warning in prepared.analysis.warnings)
+
+
+def test_malformed_video_is_reported_without_persisting_anything():
+    service = EvidenceService(ffmpeg="ffmpeg", ffprobe="ffprobe")
+    attachment = AssistedAttachment(name="bad.mp4", content_type="video/mp4", size_bytes=4, data_base64=base64.b64encode(b"test").decode())
+    with patch.object(service, '_probe', side_effect=ValueError("bad video")):
+        prepared = service.prepare([attachment])
+    assert prepared.images == []
+    assert prepared.evidence_items == []
+    assert any("malformed" in warning.lower() for warning in prepared.analysis.warnings)
+
+
+def test_provider_capabilities_do_not_fake_native_video_support():
+    caps = provider_capabilities('openai')
+    assert caps['direct_video'] is False
+    assert caps['video_frames'] is True

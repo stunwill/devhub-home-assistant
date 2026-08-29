@@ -64,6 +64,17 @@ jobs:
           tags: devhub-ci:aarch64
           build-args: |
             BUILD_FROM=ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.20
+      - name: Verify media processing dependency
+        run: |
+          docker run --rm --platform linux/arm64 --entrypoint /bin/sh devhub-ci:aarch64 -c 'ffmpeg -version >/dev/null && ffprobe -version >/dev/null'
+      - name: Smoke test video frame extraction
+        run: |
+          docker run --rm --platform linux/arm64 --entrypoint /bin/sh devhub-ci:aarch64 -c '
+            ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=black:s=320x240:d=1 -c:v mpeg4 -y /tmp/test.mp4 &&
+            ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 /tmp/test.mp4 | grep -q duration= &&
+            ffmpeg -hide_banner -loglevel error -ss 0.5 -i /tmp/test.mp4 -frames:v 1 -y /tmp/frame.jpg &&
+            test -s /tmp/frame.jpg
+          '
       - name: Smoke test add-on startup
         run: |
           mkdir -p /tmp/devhub-config
@@ -78,7 +89,7 @@ jobs:
           for i in $(seq 1 45); do
             if curl --fail --silent http://127.0.0.1:18099/api/health >/tmp/devhub-health.json; then
               cat /tmp/devhub-health.json
-              grep -q '"version":"0.5.0"' /tmp/devhub-health.json
+              grep -q '"version":"0.5.1"' /tmp/devhub-health.json
               exit 0
             fi
             if ! docker ps --format '{{.Names}}' | grep -q '^devhub-smoke$'; then
