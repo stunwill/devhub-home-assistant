@@ -165,6 +165,16 @@ Compact mobile navigation delivered in v0.5.6:
 - Added Escape, backdrop-dismissal, active-page indication, focus return and safe-area support for the mobile drawer.
 - Preserved compact two-column Portfolio cards, Home Assistant ingress behaviour and existing page workflows.
 
+Portfolio data accuracy delivered in v0.5.7:
+
+- Corrected timezone-naive GitHub sync timestamps at the API boundary so relative sync times are accurate in local browser time zones.
+- Expanded deterministic release-version evidence from GitHub Release / Git tag to Home Assistant manifest, CHANGELOG heading, frontend package metadata and backend APP_VERSION fallbacks.
+- Retained the selected release source plus all discovered version evidence for diagnostics and conflict visibility.
+- Prioritised Portfolio cards by actionable pull-request activity, with projects containing open PRs first and oldest waiting work first.
+- Ordered projects without open PRs by oldest last-merged PR activity while keeping no-history projects behind known activity.
+- Added prominent amber OPEN PR attention chips and open-PR detail links while keeping zero-PR states visually muted.
+- Preserved compact mobile cards, CI state distinctions, mobile navigation, ingress behaviour and existing Roadmap / Project Details workflows.
+
 Remaining v0.5.x opportunities:
 
 - User-confirmed persisted `duplicate of` / `related to` relationships if advisory detection proves valuable in real usage.
