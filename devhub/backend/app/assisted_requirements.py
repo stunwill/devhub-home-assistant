@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from .evidence import EvidenceService, provider_capabilities
 from .models import Project, RegisterItem, RoadmapPhase
-from .schemas import AssistedRequirementDraft, AssistedRequirementRequest, CandidateItem, EvidenceAnalysis, EvidenceObservation, ITEM_TYPES, PRIORITIES
+from .schemas import AssistedRequirementDraft, AssistedRequirementRequest, CandidateItem, EvidenceAnalysis, ITEM_TYPES, PRIORITIES
 
 WORD_RE = re.compile(r"[a-z0-9]{3,}", re.I)
 
@@ -184,9 +184,8 @@ def _merge_evidence(provider_value: Any, prepared: EvidenceAnalysis) -> Evidence
     except Exception:
         model = EvidenceAnalysis()
     sources = list(dict.fromkeys([*prepared.analysed_sources, *model.analysed_sources]))[:12]
-    extracted_markers = {(x.source, x.timestamp) for x in prepared.observations if x.observation.startswith("Representative frame extracted")}
-    provider_observations = [x for x in model.observations if (x.source, x.timestamp) not in extracted_markers]
-    observations = provider_observations[:30] or prepared.observations[:30]
+    provider_observations = model.observations[:30]
+    observations = provider_observations or prepared.observations[:30]
     warnings = list(dict.fromkeys([*prepared.warnings, *model.warnings]))[:20]
     return EvidenceAnalysis(summary=model.summary, analysed_sources=sources, observations=observations, warnings=warnings)
 
@@ -210,9 +209,11 @@ async def analyse_requirement(db: Session, project: Project, request: AssistedRe
         "instruction": "Frames extracted from video are observations of a sequence, not proof of root cause. Use visible timestamps and source names when helpful."
     }
     raw = await build_provider(config).analyse(context, prepared.images)
+    if not isinstance(raw, dict):
+        raise ValueError("AI provider response failed DevHub validation")
     raw["duplicate_candidates"] = [candidate.model_dump() for candidate in duplicates]
     raw["related_candidates"] = [candidate.model_dump() for candidate in related]
-    raw["evidence"] = _merge_evidence(raw.get("evidence"), prepared).model_dump()
+    raw["evidence"] = _merge_evidence(raw.get("evidence"), prepared.analysis).model_dump()
     raw["warnings"] = list(dict.fromkeys([*(raw.get("warnings") or []), *prepared.analysis.warnings]))[:20]
     try:
         draft = AssistedRequirementDraft.model_validate(raw)
