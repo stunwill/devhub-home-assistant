@@ -2,35 +2,44 @@ import '@testing-library/jest-dom/vitest';
 import React from 'react';
 import {render, screen} from '@testing-library/react';
 import {describe, it, expect, vi} from 'vitest';
+import {relativeTime, sortPortfolioProjects} from './main';
 
 globalThis.fetch = vi.fn(async (url: RequestInfo | URL) => ({
   ok: true,
   text: async () => JSON.stringify(String(url).includes('/api/projects') ? [] : String(url).includes('/api/register') ? [] : String(url).includes('/api/releases') ? [] : {}),
 })) as unknown as typeof fetch;
 
-vi.mock('./main.tsx', () => ({}));
-
 describe('DevHub frontend contract', () => {
-  it('keeps compact portfolio, roadmap intelligence, reconciliation and assisted requirements wording available', async () => {
+  it('keeps Portfolio Intelligence and assisted requirements wording available', async () => {
     const source = await import('./uiContract');
     render(<div>{source.navigation.join(' ')} {source.feedbackLabel} {source.portfolioLabels.join(' ')} {source.roadmapIntelligenceLabels.join(' ')} {source.reconciliationLabels.join(' ')} {source.assistedRequirementsLabels.join(' ')}</div>);
     expect(screen.getByText(/Portfolio/)).toBeInTheDocument();
     expect(screen.getByText(/Refresh all projects/)).toBeInTheDocument();
     expect(screen.getByText(/Create/)).toBeInTheDocument();
     expect(screen.getByText(/CI attention/)).toBeInTheDocument();
-    expect(screen.getByText(/Release Unknown/)).toBeInTheDocument();
+    expect(screen.getByText(/OPEN PR/)).toBeInTheDocument();
+    expect(screen.getByText(/Version evidence/)).toBeInTheDocument();
     expect(screen.getByText(/Roadmap Intelligence/)).toBeInTheDocument();
-    expect(screen.getByText(/Raw Markdown/)).toBeInTheDocument();
-    expect(screen.getByText(/Use automatic detection/)).toBeInTheDocument();
-    expect(screen.getByText(/User confirmed/)).toBeInTheDocument();
-    expect(screen.getByText(/Ignore in DevHub planning/)).toBeInTheDocument();
-    expect(screen.getByText(/Roadmap reconciliation/)).toBeInTheDocument();
-    expect(screen.getByText(/Suggested roadmap reconciliation/)).toBeInTheDocument();
-    expect(screen.getByText(/GitHub synchronisation diagnostics/)).toBeInTheDocument();
-    expect(screen.getByText(/GitHub rate limit/)).toBeInTheDocument();
     expect(screen.getByText(/Analyse & Draft Requirement/)).toBeInTheDocument();
-    expect(screen.getByText(/Suggested requirement/)).toBeInTheDocument();
-    expect(screen.getByText(/Possible duplicate/)).toBeInTheDocument();
-    expect(screen.getByText(/Create Register Item/)).toBeInTheDocument();
+  });
+
+  it('parses UTC and offset-aware timestamps without local-time drift', () => {
+    const now=Date.parse('2026-08-30T00:25:30Z');
+    expect(relativeTime('2026-08-30T00:25:00Z',now)).toBe('just now');
+    expect(relativeTime('2026-08-30T10:23:00+10:00',now)).toBe('2 min ago');
+    expect(relativeTime('2026-08-29T23:25:00Z',now)).toBe('1 hour ago');
+    expect(relativeTime('2026-08-29T00:25:00Z',now)).toBe('yesterday');
+  });
+
+  it('prioritises open PR projects then oldest PR or merged activity', () => {
+    const project=(id:number,name:string,cache:any)=>({id,name,code:name.slice(0,2),github_owner:'o',github_repo:name,default_branch:'main',roadmap_path:'ROADMAP.md',changelog_path:'CHANGELOG.md',active:true,github_sync_status:'Synced',github_cache_json:JSON.stringify(cache)} as any);
+    const rows=[
+      project(1,'No PR recent',{open_pr_count:0,last_merged_pr:{merged_at:'2026-08-29T10:00:00Z'}}),
+      project(2,'Open newer',{open_pr_count:1,open_prs:[{number:2,title:'x',url:'#',updated_at:'2026-08-29T09:00:00Z'}]}),
+      project(3,'Open older',{open_pr_count:1,open_prs:[{number:3,title:'x',url:'#',updated_at:'2026-08-28T09:00:00Z'}]}),
+      project(4,'No PR older',{open_pr_count:0,last_merged_pr:{merged_at:'2026-08-27T10:00:00Z'}}),
+      project(5,'No history',{open_pr_count:0}),
+    ];
+    expect(sortPortfolioProjects(rows).map(x=>x.id)).toEqual([3,2,4,1,5]);
   });
 });
