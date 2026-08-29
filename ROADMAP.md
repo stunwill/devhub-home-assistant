@@ -126,6 +126,15 @@ Corrective ingress release delivered in v0.5.2:
 - Added explicit CI regression protection for both static asset paths and API routing under `/api/hassio_ingress/<token>/`.
 - Bumped backend, frontend and Home Assistant app version metadata together so Home Assistant can recognise and install the corrected image.
 
+Mobile responsive UX delivered in v0.5.3:
+
+- Reworked the Home Assistant mobile shell so Portfolio, Projects, Register, Releases and Settings remain fully reachable without clipped navigation.
+- Added responsive action layouts across headers, Project Details, cards, Roadmap Intelligence and Assisted Requirements so controls remain inside narrow viewports.
+- Improved wrapping for repository names, project titles, roadmap labels, error messages and other long content that previously forced the page wider.
+- Converted dense desktop-oriented Register and diagnostic tables to stacked mobile records at narrow breakpoints.
+- Improved touch target sizing, mobile form width, mobile modal behaviour and compact phone spacing while preserving desktop layouts.
+- Added CI regression checks for responsive breakpoint rules and retained all Home Assistant ingress routing protections.
+
 Remaining v0.5.x opportunities:
 
 - User-confirmed persisted `duplicate of` / `related to` relationships if advisory detection proves valuable in real usage.

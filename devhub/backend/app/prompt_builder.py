@@ -38,8 +38,9 @@ def build_release_prompt(project: Project, release: Release, roadmap_text: str |
         "Before making changes:",
         "1. Inspect the latest merged branch state, current release/development version, latest releases/tags, recent merged PRs, open PRs and CI.",
         f"2. Read `{project.roadmap_path}` and `{project.changelog_path}` as authoritative Markdown documents.",
-        "3. Use the focused structured roadmap context below where reliable, but retain uncertainty when mapping free-form roadmap bullets to implementation.",
-        "4. Preserve existing functionality and avoid regressions.",
+        "3. If this is a Home Assistant app/add-on repository, also inspect the packaged Home Assistant changelog (normally the add-on-local `CHANGELOG.md` beside `config.yaml`).",
+        "4. Use the focused structured roadmap context below where reliable, but retain uncertainty when mapping free-form roadmap bullets to implementation.",
+        "5. Preserve existing functionality and avoid regressions.",
         "",
         "Selected DevHub release scope:",
     ]
@@ -63,10 +64,15 @@ def build_release_prompt(project: Project, release: Release, roadmap_text: str |
         "- Create or update automated tests and run the complete relevant suite.",
         "- Determine the semantic version from the actual repository state and delivered scope.",
         "- Reconcile ROADMAP.md after implementation, marking only genuinely delivered work complete and carrying unfinished items forward.",
-        "- Reconcile CHANGELOG.md so the latest documented version matches the actual release.",
+        "- Reconcile the repository-level CHANGELOG.md so the latest documented version matches the actual release and contains accurate user-facing release notes.",
+        "- For Home Assistant app/add-on repositories, update the packaged add-on-local CHANGELOG.md beside config.yaml for every release so Home Assistant displays the release notes to users.",
+        "- Keep the Home Assistant changelog concise and user-facing, while the repository-level changelog may contain fuller technical detail.",
         "- Never rewrite roadmap or changelog scope merely to make reconciliation appear clean.",
         "- Keep release record, roadmap association, changelog and GitHub version evidence consistent.",
         "- Create a focused branch and PR. Do not create a separate GitHub Issue unless explicitly requested.",
         "- Do not merge while any required CI check is failing.",
+        "- After merge and successful post-merge CI, create or update the GitHub Release/tag for the released version when tooling and permissions allow.",
+        "- Use the final repository changelog entry as the basis for GitHub Release notes, edited into a concise user-facing summary rather than leaving the GitHub Release blank.",
+        "- If GitHub Release creation is not possible with the available tooling, report that explicitly instead of claiming the release notes were published.",
     ]
     return "\n".join(lines)

@@ -2,6 +2,30 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.5.3] - 2026-08-29
+
+### Changed
+
+- Reworked the mobile application shell so primary navigation remains fully reachable on phone widths without horizontal page scrolling.
+- Added responsive action grids for header and Project Details controls so actions such as Repository, Refresh and Add Feedback stay within the viewport.
+- Improved project identity, repository names, roadmap labels, status text, errors and other long content so they wrap safely instead of widening the page.
+- Improved Portfolio cards, Project Details, Register tables, Releases, Settings diagnostics and Roadmap Intelligence for narrow viewports.
+- Made Assisted Requirements behave as a full-screen mobile workflow with stacked form controls, action buttons, evidence information and acceptance-criteria controls.
+- Increased practical touch target sizing for buttons and form controls while preserving the existing desktop layout.
+- Added compact 800 px and 480 px responsive breakpoints covering phones and small tablets.
+
+### Regression protection
+
+- CI now checks for the mobile responsive breakpoint rules, mobile navigation grid, long-content wrapping, touch targets and full-screen mobile modal behaviour.
+- Existing Home Assistant ingress asset and API-routing regression checks remain intact.
+- ARM64 startup smoke testing now requires `/api/health` to report version 0.5.3.
+
+### Release scope
+
+- Application, frontend and Home Assistant app version metadata updated consistently to 0.5.3.
+- No database migration is required for this UX-only release.
+- v0.6.x Release Execution remains future work and is not advanced by this release.
+
 ## [0.5.2] - 2026-08-29
 
 ### Fixed
