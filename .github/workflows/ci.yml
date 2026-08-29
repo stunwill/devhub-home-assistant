@@ -60,7 +60,7 @@ jobs:
           grep -q 'PortfolioSummary' src/main.tsx
           grep -q 'accordion-toggle' src/main.tsx
           grep -q 'grid-template-columns:repeat(2,minmax(0,1fr))' src/styles.css
-          grep -q '@media(max-width:420px)' src/styles.css
+          grep -q '@media(max-width:360px)' src/styles.css
 
   addon-aarch64:
     runs-on: ubuntu-latest
