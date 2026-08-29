@@ -1,5 +1,6 @@
 export const navigation=['Portfolio','Projects','Register','Releases','Settings'];
 export const feedbackLabel='+ Feedback';
+export const portfolioLabels=['Refresh all projects','Create','Add Project','Add Feedback','Projects','CI attention','Open PRs','Release gaps','Release Unknown','More','Less','Roadmap','Project Details'];
 export const roadmapIntelligenceLabels=['Roadmap Intelligence','Structured','Raw Markdown','Reparse Roadmap','Current phase','Next phase','Use automatic detection','User confirmed','User override','Ignore in DevHub planning'];
 export const reconciliationLabels=['Roadmap reconciliation','Reconciliation required','Suggested roadmap reconciliation','CHANGELOG.md','GitHub synchronisation diagnostics','GitHub rate limit'];
 export const assistedRequirementsLabels=['Analyse & Draft Requirement','Suggested requirement','Possible duplicate','Possibly related','Create Register Item','AI assistance is not configured'];

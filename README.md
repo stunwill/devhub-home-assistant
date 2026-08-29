@@ -2,12 +2,15 @@
 
 DevHub is a Home Assistant app for managing a portfolio of GitHub-developed applications. It combines release visibility, pull-request status, structured roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning, deterministic roadmap/release reconciliation and optional Assisted Requirements.
 
-## v0.5.4 capabilities
+## v0.5.5 capabilities
 
 - Home Assistant app packaging with ingress.
 - FastAPI backend, React/Vite frontend and SQLite persistence.
 - GitHub repository URL onboarding and project discovery.
-- Responsive Portfolio dashboard with release, PR, CI and sync state.
+- Compact responsive Portfolio dashboard with scan-first release, PR, CI, roadmap-next-phase and sync state.
+- Portfolio summary metrics for total projects, CI attention, open PRs and release metadata gaps.
+- Header-level refresh icon plus a single Create `+` action for Add Project and Add Feedback.
+- Expandable project-card details retaining repository metadata, release source, merged PR and existing Roadmap / Project Details actions.
 - Project logo/icon upload stored in persistent runtime storage.
 - Deterministic Roadmap Intelligence for common Markdown roadmap structures.
 - Structured and Raw Markdown roadmap views.
@@ -35,7 +38,7 @@ DevHub is a Home Assistant app for managing a portfolio of GitHub-developed appl
 - CI aggregation using GitHub check-runs and combined commit status.
 - GitHub synchronisation diagnostics with rate-limit and retry/backoff visibility.
 - Backend GitHub synchronisation approximately every 15 minutes, including when no browser is open.
-- Manual Refresh All, per-project refresh and Reparse Roadmap actions.
+- Manual portfolio refresh, per-project refresh and Reparse Roadmap actions.
 - Raspberry Pi 5/aarch64 Home Assistant image build validation, media-processing smoke tests and startup smoke testing in CI.
 
 ## Architecture
@@ -154,9 +157,13 @@ Stronger matches are shown as **Possible duplicate** and weaker matches as **Pos
 
 ## Portfolio dashboard
 
-Portfolio remains the main operational view. Each project card shows project identity, latest detected release/version, open PRs, last merged PR, CI and GitHub sync state. Project Details contains richer reconciliation and diagnostics information so Portfolio cards remain compact.
+Portfolio remains the main operational view, but the default presentation is deliberately compact. Each collapsed project card surfaces project identity, current release, CI status, next roadmap phase, open PR count and sync freshness. Missing release metadata and unhealthy states are visually emphasised while normal zero/healthy states remain quiet.
 
-Use **Refresh All** to immediately refresh all active projects. If GitHub refresh fails, DevHub retains last-known-good metadata and marks the project degraded instead of clearing useful data.
+The Portfolio header contains an icon-only refresh action plus a single Create `+` action. Create opens Add Project and Add Feedback without duplicating their underlying workflows.
+
+Project cards can be expanded in place to show repository identity and description, release source, current roadmap phase, last merged PR and the existing Roadmap and Project Details actions. On mobile, the dashboard targets two cards across where practical, with a single-column fallback below narrow phone widths.
+
+If GitHub refresh fails, DevHub retains last-known-good metadata and marks the project degraded instead of clearing useful data.
 
 ## Roadmap Intelligence
 
@@ -210,7 +217,7 @@ Settings provides operational diagnostics including sync attempts, latest commit
 
 Frontend production assets use Vite `base: './'` so JS/CSS remain relative to the Home Assistant ingress path. CI explicitly rejects root-absolute `/assets/...` paths. The Assisted Requirements modal and existing dashboard layouts avoid page-level horizontal scrolling on portrait mobile.
 
-Roadmap lifecycle cards, evidence file names, capability notices, observation cards and requirement controls are designed to wrap within narrow mobile viewports rather than forcing page-level horizontal scrolling. Historical roadmap cards suppress repetitive item detail at phone widths and do not show a large ignore action unless that phase is already explicitly ignored.
+Portfolio cards use a responsive two-column phone layout where practical, fall back to one column below 420 px, clamp long card content, and use a safe-area-aware Create bottom sheet. Roadmap lifecycle cards, evidence file names, capability notices, observation cards and requirement controls also wrap within narrow mobile viewports rather than forcing page-level horizontal scrolling.
 
 ## Persistent data
 
@@ -248,7 +255,7 @@ npm run dev
 
 ## Database migrations
 
-Alembic is configured under `devhub/migrations`, and app startup runs `alembic upgrade head` before FastAPI. v0.5.4 does not require a database migration because roadmap lifecycle state is derived from existing parsed roadmap and release evidence rather than stored redundantly.
+Alembic is configured under `devhub/migrations`, and app startup runs `alembic upgrade head` before FastAPI. v0.5.5 does not require a database migration because the Portfolio redesign reuses existing project, GitHub and roadmap metadata.
 
 ## CI and startup protection
 
@@ -258,6 +265,7 @@ CI verifies:
 - frontend type/lint checks and tests;
 - frontend production build;
 - ingress-safe relative production asset paths;
+- compact Portfolio header, summary, accordion and responsive-grid source safeguards;
 - Home Assistant manifest keeps `app_config`, aarch64 support and no deprecated `armv7` declaration;
 - aarch64 image build;
 - `ffmpeg` and `ffprobe` availability inside the production aarch64 image;

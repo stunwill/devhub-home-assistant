@@ -2,6 +2,14 @@
 
 This changelog is packaged with the DevHub Home Assistant app so release notes are visible from the Home Assistant app/add-on store. The repository-level `CHANGELOG.md` remains the detailed product changelog.
 
+## 0.5.5
+
+- Redesigned Portfolio around compact scan-first project cards with release, CI, next phase, PR and sync status visible at a glance.
+- Replaced large Portfolio action buttons with a refresh icon and one Create `+` menu for Add Project and Add Feedback.
+- Added compact portfolio summary metrics and expandable per-project details.
+- Improved responsive card density with two-column mobile layouts where practical and a narrow-screen fallback.
+- Preserved Home Assistant ingress, Roadmap Intelligence, Evidence Intelligence and aarch64 startup protections.
+
 ## 0.5.4
 
 - Fixed Roadmap Intelligence lifecycle ordering so a lower released version can no longer become the automatically detected next phase.

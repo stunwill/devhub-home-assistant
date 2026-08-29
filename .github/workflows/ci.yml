@@ -53,6 +53,14 @@ jobs:
           grep -q 'overflow-wrap:anywhere' src/styles.css
           grep -q 'min-height:44px' src/styles.css
           grep -q '.modal{width:100%;height:100%;max-height:none' src/styles.css
+      - name: Verify compact portfolio dashboard safeguards
+        run: |
+          grep -q 'aria-label="Refresh all projects"' src/main.tsx
+          grep -q 'aria-label="Create"' src/main.tsx
+          grep -q 'PortfolioSummary' src/main.tsx
+          grep -q 'accordion-toggle' src/main.tsx
+          grep -q 'grid-template-columns:repeat(2,minmax(0,1fr))' src/styles.css
+          grep -q '@media(max-width:360px)' src/styles.css
 
   addon-aarch64:
     runs-on: ubuntu-latest
@@ -62,12 +70,12 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: Validate release changelogs
         run: |
-          grep -q '^## \[0.5.4\]' CHANGELOG.md
+          grep -q '^## \[0.5.5\]' CHANGELOG.md
           test -s devhub/CHANGELOG.md
-          grep -q '^## 0.5.4$' devhub/CHANGELOG.md
+          grep -q '^## 0.5.5$' devhub/CHANGELOG.md
       - name: Validate Home Assistant app manifest
         run: |
-          grep -q 'version: "0.5.4"' devhub/config.yaml
+          grep -q 'version: "0.5.5"' devhub/config.yaml
           grep -q '  - app_config:rw' devhub/config.yaml
           ! grep -q 'addon_config' devhub/config.yaml
           ! grep -q 'armv7' devhub/config.yaml
@@ -109,7 +117,7 @@ jobs:
           for i in $(seq 1 45); do
             if curl --fail --silent http://127.0.0.1:18099/api/health >/tmp/devhub-health.json; then
               cat /tmp/devhub-health.json
-              grep -q '"version":"0.5.4"' /tmp/devhub-health.json
+              grep -q '"version":"0.5.5"' /tmp/devhub-health.json
               exit 0
             fi
             if ! docker ps --format '{{.Names}}' | grep -q '^devhub-smoke$'; then

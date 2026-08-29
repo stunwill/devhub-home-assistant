@@ -11,11 +11,14 @@ globalThis.fetch = vi.fn(async (url: RequestInfo | URL) => ({
 vi.mock('./main.tsx', () => ({}));
 
 describe('DevHub frontend contract', () => {
-  it('keeps roadmap intelligence, reconciliation and assisted requirements wording available', async () => {
+  it('keeps compact portfolio, roadmap intelligence, reconciliation and assisted requirements wording available', async () => {
     const source = await import('./uiContract');
-    render(<div>{source.navigation.join(' ')} {source.feedbackLabel} {source.roadmapIntelligenceLabels.join(' ')} {source.reconciliationLabels.join(' ')} {source.assistedRequirementsLabels.join(' ')}</div>);
+    render(<div>{source.navigation.join(' ')} {source.feedbackLabel} {source.portfolioLabels.join(' ')} {source.roadmapIntelligenceLabels.join(' ')} {source.reconciliationLabels.join(' ')} {source.assistedRequirementsLabels.join(' ')}</div>);
     expect(screen.getByText(/Portfolio/)).toBeInTheDocument();
-    expect(screen.getByText(/Feedback/)).toBeInTheDocument();
+    expect(screen.getByText(/Refresh all projects/)).toBeInTheDocument();
+    expect(screen.getByText(/Create/)).toBeInTheDocument();
+    expect(screen.getByText(/CI attention/)).toBeInTheDocument();
+    expect(screen.getByText(/Release Unknown/)).toBeInTheDocument();
     expect(screen.getByText(/Roadmap Intelligence/)).toBeInTheDocument();
     expect(screen.getByText(/Raw Markdown/)).toBeInTheDocument();
     expect(screen.getByText(/Use automatic detection/)).toBeInTheDocument();
