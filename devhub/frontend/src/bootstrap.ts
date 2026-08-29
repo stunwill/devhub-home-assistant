@@ -1,2 +1,4 @@
-import './ingress';
-import './main';
+import {installIngressRouting} from './ingress';
+
+installIngressRouting();
+void import('./main');
