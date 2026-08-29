@@ -1,11 +1,20 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 ITEM_TYPES = ["Defect", "Enhancement", "UX Improvement", "Technical Debt", "Performance", "Security", "Documentation"]
 ITEM_STATUSES = ["New", "Reviewed", "Approved", "Planned", "In Development", "Ready for Test", "Passed", "Failed", "Released", "Deferred", "Rejected"]
 PRIORITIES = ["Low", "Medium", "High", "Critical"]
 TEST_STATUSES = ["Not Tested", "Pass", "Fail", "Not Applicable"]
+
+def utc_iso(value: datetime | None):
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value=value.replace(tzinfo=timezone.utc)
+    else:
+        value=value.astimezone(timezone.utc)
+    return value.isoformat().replace('+00:00','Z')
 
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
@@ -45,6 +54,10 @@ class ProjectOut(ProjectCreate):
     github_rate_limit_reset_at: datetime | None = None
     github_backoff_until: datetime | None = None
     github_failure_count: int = 0
+
+    @field_serializer('latest_release_at','github_refreshed_at','github_last_attempt_at','changelog_parsed_at','github_rate_limit_reset_at','github_backoff_until')
+    def serialize_utc_datetime(self,value:datetime|None):
+        return utc_iso(value)
 
 class ProjectDiscover(BaseModel):
     repository_url: str

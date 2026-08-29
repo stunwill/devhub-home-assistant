@@ -2,7 +2,7 @@
 
 DevHub is a Home Assistant app for managing a portfolio of GitHub-developed applications. It combines release visibility, pull-request status, structured roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning, deterministic roadmap/release reconciliation and optional Assisted Requirements.
 
-## v0.5.6 capabilities
+## v0.5.7 capabilities
 
 - Home Assistant app packaging with ingress.
 - FastAPI backend, React/Vite frontend and SQLite persistence.
@@ -12,7 +12,12 @@ DevHub is a Home Assistant app for managing a portfolio of GitHub-developed appl
 - Compact mobile application header with hamburger navigation beside the DevHub brand.
 - Mobile navigation drawer for Portfolio, Projects, Register, Releases and Settings, while desktop retains the persistent sidebar.
 - Header-level refresh icon plus a single Create `+` action for Add Project and Add Feedback.
-- Expandable project-card details retaining repository metadata, release source, merged PR and existing Roadmap / Project Details actions.
+- Portfolio ordering that prioritises projects with open PRs, oldest waiting PR activity first, then projects without open PRs by oldest last-merged activity.
+- Prominent amber OPEN PR attention chips while zero-PR states remain visually muted.
+- UTC-aware API timestamps for accurate local relative-time rendering.
+- Deterministic release-version evidence hierarchy using GitHub Release, Git tag, Home Assistant manifest, CHANGELOG, frontend package metadata and backend APP_VERSION.
+- Version source and all discovered version evidence retained for diagnostics and conflict visibility.
+- Expandable project-card details retaining repository metadata, release source, version evidence, open PR details, merged PR and existing Roadmap / Project Details actions.
 - Project logo/icon upload stored in persistent runtime storage.
 - Deterministic Roadmap Intelligence for common Markdown roadmap structures.
 - Structured and Raw Markdown roadmap views.
@@ -36,7 +41,6 @@ DevHub is a Home Assistant app for managing a portfolio of GitHub-developed appl
 - Deterministic duplicate/related candidate narrowing with weighted structured-field matching and user-visible match explanations.
 - Suggested acceptance criteria, testing instructions, priority, item type and optional roadmap phase with explicit user review.
 - Non-secret AI provider capability reporting for text, image, multiple-image, direct-video, frame-based video and structured output support.
-- GitHub Release to Git tag version fallback with version-source tracking.
 - CI aggregation using GitHub check-runs and combined commit status.
 - GitHub synchronisation diagnostics with rate-limit and retry/backoff visibility.
 - Backend GitHub synchronisation approximately every 15 minutes, including when no browser is open.
@@ -53,6 +57,7 @@ Home Assistant
       -> SQLite + attachments + project artwork under /config
       -> GitHub REST API
       -> backend synchronisation task
+      -> deterministic version-evidence discovery
       -> deterministic roadmap/changelog parsers
       -> roadmap lifecycle resolver
       -> reconciliation service

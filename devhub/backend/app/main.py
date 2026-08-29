@@ -4,7 +4,7 @@ import os
 import re
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import bleach
@@ -23,7 +23,7 @@ from .reconciliation import compare_changelog, reconcile_release
 from .roadmap_parser import lifecycle_status, parse_roadmap, semantic_version, version_contains, version_order_key
 from .schemas import AssistedRequirementDraft, AssistedRequirementRequest, ProjectCreate, ProjectDiscover, ProjectFromUrl, ProjectOut, RegisterItemCreate, RegisterItemOut, RegisterItemUpdate, ReleaseCreate, ReleaseOut, TestResultUpdate, TEST_STATUSES
 
-APP_VERSION = "0.5.6"
+APP_VERSION = "0.5.7"
 DATA_DIR = Path(os.getenv("DEVHUB_DATA_DIR", "./data"))
 UPLOAD_DIR = DATA_DIR / "uploads"
 PROJECT_LOGO_DIR = DATA_DIR / "project-logos"
@@ -35,6 +35,20 @@ ALLOWED_LOGO_TYPES = {"image/jpeg", "image/png", "image/webp", "image/svg+xml"}
 BACKGROUND_SYNC_SECONDS = max(300, int(os.getenv("DEVHUB_SYNC_INTERVAL_SECONDS", "900")))
 
 Base.metadata.create_all(bind=engine)
+
+
+def utcnow_naive() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def iso_utc(value: datetime | None):
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    else:
+        value = value.astimezone(timezone.utc)
+    return value.isoformat().replace("+00:00", "Z")
 
 
 def project_or_404(db: Session, project_id: int) -> Project:
@@ -144,7 +158,7 @@ async def sync_roadmap_record(p: Project, db: Session, force: bool = False):
         return {"status": latest.parse_status, "snapshot_id": latest.id, "phases": [_phase_dict(x, p.latest_version) for x in latest.phases], "warnings": []}
     previous_ignored = {(x.version or "", x.title): x.ignored for x in (latest.phases if latest else [])}
     parsed = parse_roadmap(text)
-    snapshot = RoadmapSnapshot(project_id=p.id, source_path=p.roadmap_path, source_sha=(meta or {}).get("sha"), markdown_text=text, fetched_at=datetime.utcnow(), parsed_at=datetime.utcnow(), parse_status=parsed["status"], parse_error="; ".join(parsed.get("warnings") or []) or None)
+    snapshot = RoadmapSnapshot(project_id=p.id, source_path=p.roadmap_path, source_sha=(meta or {}).get("sha"), markdown_text=text, fetched_at=utcnow_naive(), parsed_at=utcnow_naive(), parse_status=parsed["status"], parse_error="; ".join(parsed.get("warnings") or []) or None)
     db.add(snapshot); db.flush()
     phases: list[RoadmapPhase] = []
     for phase_data in parsed.get("phases", []):
@@ -166,7 +180,7 @@ async def sync_changelog_record(p: Project, db: Session, force: bool = False):
     state = compare_changelog(text, p.latest_version)
     p.changelog_source_sha = (meta or {}).get("sha")
     p.changelog_parsed_version = state.get("version")
-    p.changelog_parsed_at = datetime.utcnow()
+    p.changelog_parsed_at = utcnow_naive()
     p.changelog_status = state.get("status")
     db.commit()
     return {**state, "source_sha": p.changelog_source_sha, "parsed_at": p.changelog_parsed_at}
@@ -189,7 +203,7 @@ async def reconciliation_for_project(p: Project, db: Session):
 
 
 async def sync_project_record(p: Project, db: Session):
-    now = datetime.utcnow()
+    now = utcnow_naive()
     if p.github_backoff_until and p.github_backoff_until > now:
         return {"skipped": True, "reason": "Backoff active until GitHub retry window"}
     gh = GitHubService(); p.github_last_attempt_at = now
@@ -201,8 +215,8 @@ async def sync_project_record(p: Project, db: Session):
         if version.get("version"):
             p.latest_version = version.get("version"); p.latest_release_url = version.get("url"); p.latest_release_at = gh.parse_github_datetime(version.get("published_at"))
         p.github_rate_limit_remaining = rate.get("remaining"); p.github_rate_limit_limit = rate.get("limit"); p.github_rate_limit_reset_at = rate.get("reset_at")
-        p.github_cache_json = json.dumps({"open_pr_count": len(data.get("open_prs") or []), "open_prs": open_pr_summary(data.get("open_prs") or []), "last_merged_pr": data.get("last_merged_pr"), "latest_commit": commit, "ci": data.get("ci"), "version_source": version.get("source", "Unknown"), "version_evidence": [{"source": version.get("source", "Unknown"), "version": version.get("version")}], "rate_limit": {"remaining": p.github_rate_limit_remaining, "limit": p.github_rate_limit_limit, "reset_at": p.github_rate_limit_reset_at.isoformat() if p.github_rate_limit_reset_at else None}})
-        p.github_refreshed_at = datetime.utcnow(); p.github_sync_status = "Synced"; p.github_sync_error = None; p.github_failure_count = 0; p.github_backoff_until = None
+        p.github_cache_json = json.dumps({"open_pr_count": len(data.get("open_prs") or []), "open_prs": open_pr_summary(data.get("open_prs") or []), "last_merged_pr": data.get("last_merged_pr"), "latest_commit": commit, "ci": data.get("ci"), "version_source": version.get("source", "Unknown"), "version_evidence": version.get("evidence") or [], "rate_limit": {"remaining": p.github_rate_limit_remaining, "limit": p.github_rate_limit_limit, "reset_at": iso_utc(p.github_rate_limit_reset_at)}})
+        p.github_refreshed_at = utcnow_naive(); p.github_sync_status = "Synced"; p.github_sync_error = None; p.github_failure_count = 0; p.github_backoff_until = None
         db.commit(); db.refresh(p)
         try: await sync_roadmap_record(p, db, force=False)
         except Exception: pass
@@ -217,7 +231,7 @@ async def sync_project_record(p: Project, db: Session):
         delay_minutes = min(60, 2 ** min(p.github_failure_count, 5))
         if "authentication failed" in str(exc).lower(): delay_minutes = 60
         if "rate limit" in str(exc).lower() and p.github_rate_limit_reset_at: p.github_backoff_until = p.github_rate_limit_reset_at
-        else: p.github_backoff_until = datetime.utcnow() + timedelta(minutes=delay_minutes)
+        else: p.github_backoff_until = utcnow_naive() + timedelta(minutes=delay_minutes)
         db.commit(); raise
 
 
@@ -283,7 +297,7 @@ async def create_project_from_url(payload: ProjectFromUrl, db: Session = Depends
     if db.scalar(select(Project).where(Project.github_owner == data["owner"], Project.github_repo == data["repo"])): raise HTTPException(409, "This GitHub repository is already configured")
     code = (payload.code or default_code(data["repo"])).upper()
     if db.scalar(select(Project).where(Project.code == code)): code = f"{code[:9]}{uuid.uuid4().hex[:3].upper()}"
-    p = Project(name=payload.name or data["name"], code=code, github_owner=data["owner"], github_repo=data["repo"], repository_url=data["repository_url"], repository_description=data.get("description"), repository_visibility=data.get("visibility"), default_branch=data.get("default_branch") or "main", roadmap_path=(data.get("roadmap") or {}).get("path") or "ROADMAP.md", changelog_path=(data.get("changelog") or {}).get("path") or "CHANGELOG.md", active=True)
+    p = Project(name=payload.name or data["name"], code=code, github_owner=data["owner"], github_repo=data["repo"], repository_url=data["repository_url"], repository_description=data.get("description"), repository_visibility=data.get("visibility"), default_branch=data.get("default_branch") or "main", roadmap_path=data.get("roadmap_path") or "ROADMAP.md", changelog_path=data.get("changelog_path") or "CHANGELOG.md", active=True)
     db.add(p); db.commit(); db.refresh(p)
     try: await sync_project_record(p, db)
     except Exception: pass
@@ -309,7 +323,7 @@ async def refresh_all(db: Session = Depends(get_db)):
 def sync_summary(db: Session = Depends(get_db)):
     active=list(db.scalars(select(Project).where(Project.active==True))); failed=[p for p in active if p.github_sync_status=="Failed"]
     last=max((p.github_refreshed_at for p in active if p.github_refreshed_at),default=None)
-    return {"active_projects":len(active),"failed_projects":len(failed),"status":"degraded" if failed else "ok","last_successful_sync":last,"interval_seconds":BACKGROUND_SYNC_SECONDS}
+    return {"active_projects":len(active),"failed_projects":len(failed),"status":"degraded" if failed else "ok","last_successful_sync":iso_utc(last),"interval_seconds":BACKGROUND_SYNC_SECONDS}
 
 @app.get("/api/projects/sync-diagnostics")
 def sync_diagnostics(db: Session = Depends(get_db)):
@@ -317,7 +331,7 @@ def sync_diagnostics(db: Session = Depends(get_db)):
     for p in db.scalars(select(Project).order_by(Project.name)):
         latest=db.scalar(select(RoadmapSnapshot).where(RoadmapSnapshot.project_id==p.id).order_by(RoadmapSnapshot.id.desc()))
         cache=json.loads(p.github_cache_json or "{}")
-        rows.append({"project_id":p.id,"project":p.name,"last_successful_sync":p.github_refreshed_at,"last_attempted_sync":p.github_last_attempt_at,"sync_state":p.github_sync_status,"latest_commit_sha":((cache.get("latest_commit") or {}).get("sha")),"roadmap_source_sha":latest.source_sha if latest else None,"roadmap_parsed_time":latest.parsed_at if latest else None,"roadmap_parse_state":latest.parse_status if latest else "Unknown","detected_version":p.latest_version,"version_source":cache.get("version_source","Unknown"),"ci_state":((cache.get("ci") or {}).get("state")),"changelog_reconciliation_state":p.changelog_status,"last_error":p.github_sync_error,"backoff_until":p.github_backoff_until,"rate_limit":{"remaining":p.github_rate_limit_remaining,"limit":p.github_rate_limit_limit,"reset_at":p.github_rate_limit_reset_at}})
+        rows.append({"project_id":p.id,"project":p.name,"last_successful_sync":iso_utc(p.github_refreshed_at),"last_attempted_sync":iso_utc(p.github_last_attempt_at),"sync_state":p.github_sync_status,"latest_commit_sha":((cache.get("latest_commit") or {}).get("sha")),"roadmap_source_sha":latest.source_sha if latest else None,"roadmap_parsed_time":iso_utc(latest.parsed_at) if latest else None,"roadmap_parse_state":latest.parse_status if latest else "Unknown","detected_version":p.latest_version,"version_source":cache.get("version_source","Unknown"),"version_evidence":cache.get("version_evidence",[]),"ci_state":((cache.get("ci") or {}).get("state")),"changelog_reconciliation_state":p.changelog_status,"last_error":p.github_sync_error,"backoff_until":iso_utc(p.github_backoff_until),"rate_limit":{"remaining":p.github_rate_limit_remaining,"limit":p.github_rate_limit_limit,"reset_at":iso_utc(p.github_rate_limit_reset_at)}})
     return rows
 
 @app.get("/api/projects/{project_id}/roadmap/intelligence")
@@ -329,7 +343,7 @@ async def roadmap_intelligence(project_id:int,db:Session=Depends(get_db)):
         latest=db.scalar(select(RoadmapSnapshot).where(RoadmapSnapshot.project_id==p.id).order_by(RoadmapSnapshot.id.desc()))
     if not latest: return {"status":"Missing","phases":[]}
     phases=list(latest.phases); detected_project=Project(latest_version=p.latest_version); detected_current,detected_next=_choose_current_next(detected_project,phases)
-    return {"status":latest.parse_status,"snapshot_id":latest.id,"source_path":latest.source_path,"source_sha":latest.source_sha,"fetched_at":latest.fetched_at,"parsed_at":latest.parsed_at,"error":latest.parse_error,"current_phase_id":p.roadmap_current_phase_id,"next_phase_id":p.roadmap_next_phase_id,"current_phase_source":"User confirmed" if p.roadmap_current_override else "Detected","next_phase_source":"User override" if p.roadmap_next_override else "Detected","detected_current_phase_id":detected_current,"detected_next_phase_id":detected_next,"phases":[_phase_dict(x,p.latest_version) for x in phases]}
+    return {"status":latest.parse_status,"snapshot_id":latest.id,"source_path":latest.source_path,"source_sha":latest.source_sha,"fetched_at":iso_utc(latest.fetched_at),"parsed_at":iso_utc(latest.parsed_at),"error":latest.parse_error,"current_phase_id":p.roadmap_current_phase_id,"next_phase_id":p.roadmap_next_phase_id,"current_phase_source":"User confirmed" if p.roadmap_current_override else "Detected","next_phase_source":"User override" if p.roadmap_next_override else "Detected","detected_current_phase_id":detected_current,"detected_next_phase_id":detected_next,"phases":[_phase_dict(x,p.latest_version) for x in phases]}
 
 @app.post("/api/projects/{project_id}/roadmap/reparse")
 async def reparse_roadmap(project_id:int,db:Session=Depends(get_db)): return await sync_roadmap_record(project_or_404(db,project_id),db,force=True)

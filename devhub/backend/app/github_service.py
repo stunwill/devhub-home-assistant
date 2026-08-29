@@ -1,4 +1,5 @@
 import base64
+import json
 import os
 import re
 from datetime import datetime, timezone
@@ -7,6 +8,9 @@ import httpx
 class GitHubService:
     REPO_URL_RE = re.compile(r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
     SEMVER_TAG_RE = re.compile(r"^v?\d+\.\d+(?:\.\d+)?(?:[-+][A-Za-z0-9.-]+)?$", re.I)
+    CHANGELOG_HEADING_RE = re.compile(r"^##\s+(?:\[)?(v?\d+\.\d+(?:\.\d+)?(?:[-+][A-Za-z0-9.-]+)?)(?:\])?(?:\s+-.*)?$", re.I | re.M)
+    APP_VERSION_RE = re.compile(r"\bAPP_VERSION\s*=\s*[\"']([^\"']+)[\"']")
+    MANIFEST_VERSION_RE = re.compile(r"^version:\s*[\"']?([^\"'\s#]+)[\"']?\s*$", re.I | re.M)
 
     def __init__(self, token: str | None = None):
         self.token = token or os.getenv("DEVHUB_GITHUB_TOKEN", "")
@@ -60,16 +64,6 @@ class GitHubService:
     async def tags(self, owner: str, repo: str):
         return await self._get(f"/repos/{owner}/{repo}/tags?per_page=100") or []
 
-    async def release_or_tag(self, owner: str, repo: str):
-        release = await self.latest_release(owner, repo)
-        if release:
-            return {"version": release.get("tag_name"), "url": release.get("html_url"), "published_at": release.get("published_at") or release.get("created_at"), "source": "GitHub Release", "release": release}
-        for tag in await self.tags(owner, repo):
-            name = tag.get("name") or ""
-            if self.SEMVER_TAG_RE.match(name):
-                return {"version": name, "url": f"https://github.com/{owner}/{repo}/tree/{name}", "published_at": None, "source": "Git tag", "release": None}
-        return {"version": None, "url": None, "published_at": None, "source": "Unknown", "release": None}
-
     async def file_data(self, owner: str, repo: str, path: str, ref: str):
         return await self._get(f"/repos/{owner}/{repo}/contents/{path}?ref={ref}")
 
@@ -93,6 +87,83 @@ class GitHubService:
         if data.get("encoding") == "base64" and "content" in data:
             text = base64.b64decode(data["content"]).decode("utf-8")
         return text, {"sha": data.get("sha"), "path": data.get("path"), "html_url": data.get("html_url")}
+
+    async def _evidence_from_file(self, owner: str, repo: str, ref: str, path: str, source: str, parser):
+        try:
+            text = await self.file_text(owner, repo, path, ref)
+        except Exception:
+            return None
+        if not text:
+            return None
+        try:
+            version = parser(text)
+        except Exception:
+            return None
+        if not version or not self.SEMVER_TAG_RE.match(str(version)):
+            return None
+        return {"source": source, "version": str(version), "path": path}
+
+    @classmethod
+    def _manifest_version(cls, text: str):
+        match = cls.MANIFEST_VERSION_RE.search(text)
+        return match.group(1) if match else None
+
+    @classmethod
+    def _changelog_version(cls, text: str):
+        match = cls.CHANGELOG_HEADING_RE.search(text)
+        return match.group(1) if match else None
+
+    @staticmethod
+    def _package_version(text: str):
+        data = json.loads(text)
+        return data.get("version") if isinstance(data, dict) else None
+
+    @classmethod
+    def _backend_version(cls, text: str):
+        match = cls.APP_VERSION_RE.search(text)
+        return match.group(1) if match else None
+
+    async def version_evidence(self, owner: str, repo: str, ref: str, changelog_path: str | None = None):
+        evidence = []
+        release = await self.latest_release(owner, repo)
+        if release and release.get("tag_name"):
+            evidence.append({"source": "GitHub Release", "version": release.get("tag_name"), "url": release.get("html_url"), "published_at": release.get("published_at") or release.get("created_at")})
+        tags = await self.tags(owner, repo)
+        tag = next((t for t in tags if self.SEMVER_TAG_RE.match(t.get("name") or "")), None)
+        if tag:
+            evidence.append({"source": "Git tag", "version": tag.get("name"), "url": f"https://github.com/{owner}/{repo}/tree/{tag.get('name')}"})
+        manifest_paths = ["config.yaml", f"{repo.replace('-home-assistant','')}/config.yaml", "devhub/config.yaml", "addon/config.yaml", "app/config.yaml"]
+        seen = set()
+        for path in manifest_paths:
+            if path in seen:
+                continue
+            seen.add(path)
+            item = await self._evidence_from_file(owner, repo, ref, path, "Home Assistant manifest", self._manifest_version)
+            if item:
+                evidence.append(item); break
+        if changelog_path:
+            item = await self._evidence_from_file(owner, repo, ref, changelog_path, "CHANGELOG.md", self._changelog_version)
+            if item: evidence.append(item)
+        else:
+            for path in ["CHANGELOG.md", "docs/CHANGELOG.md", "Changelog.md", "docs/changelog.md"]:
+                item = await self._evidence_from_file(owner, repo, ref, path, "CHANGELOG.md", self._changelog_version)
+                if item:
+                    evidence.append(item); break
+        for path in ["package.json", "frontend/package.json", "web/package.json", "ui/package.json", "devhub/frontend/package.json"]:
+            item = await self._evidence_from_file(owner, repo, ref, path, "Frontend package.json", self._package_version)
+            if item:
+                evidence.append(item); break
+        for path in ["backend/app/main.py", "app/main.py", "src/main.py", "devhub/backend/app/main.py"]:
+            item = await self._evidence_from_file(owner, repo, ref, path, "Backend APP_VERSION", self._backend_version)
+            if item:
+                evidence.append(item); break
+        return evidence
+
+    async def release_or_tag(self, owner: str, repo: str, ref: str = "main", changelog_path: str | None = None):
+        evidence = await self.version_evidence(owner, repo, ref, changelog_path)
+        winner = evidence[0] if evidence else {"source": "Unknown", "version": None}
+        release = await self.latest_release(owner, repo) if winner.get("source") == "GitHub Release" else None
+        return {"version": winner.get("version"), "url": winner.get("url"), "published_at": winner.get("published_at"), "source": winner.get("source", "Unknown"), "release": release, "evidence": evidence}
 
     async def open_pull_requests(self, owner: str, repo: str):
         return await self._get(f"/repos/{owner}/{repo}/pulls?state=open&sort=updated&direction=desc&per_page=100") or []
@@ -148,13 +219,13 @@ class GitHubService:
         if not metadata:
             raise ValueError("GitHub repository not found or inaccessible")
         branch = metadata.get("default_branch") or "main"
-        version_info = await self.release_or_tag(owner, repo)
+        roadmap = await self.detect_path(owner, repo, branch, ["ROADMAP.md", "docs/ROADMAP.md", "Roadmap.md", "docs/roadmap.md"])
+        changelog = await self.detect_path(owner, repo, branch, ["CHANGELOG.md", "docs/CHANGELOG.md", "Changelog.md", "docs/changelog.md"])
+        version_info = await self.release_or_tag(owner, repo, branch, changelog)
         prs = await self.open_pull_requests(owner, repo)
         merged = await self.last_merged_pull_request(owner, repo)
         commit = await self.latest_commit(owner, repo, branch)
         status = await self.combined_status(owner, repo, commit.get("sha") if commit else None)
-        roadmap = await self.detect_path(owner, repo, branch, ["ROADMAP.md", "docs/ROADMAP.md", "Roadmap.md", "docs/roadmap.md"])
-        changelog = await self.detect_path(owner, repo, branch, ["CHANGELOG.md", "docs/CHANGELOG.md", "Changelog.md", "docs/changelog.md"])
         return {"owner": owner, "repo": repo, "repository_url": metadata.get("html_url") or repository_url, "name": metadata.get("name") or repo, "description": metadata.get("description"), "visibility": metadata.get("visibility") or ("private" if metadata.get("private") else "public"), "default_branch": branch, "latest_release": version_info.get("release"), "version": version_info, "open_prs": prs, "last_merged_pr": merged, "latest_commit": commit, "ci": status, "roadmap_path": roadmap, "changelog_path": changelog, "rate_limit": self.rate_limit}
 
     @staticmethod
