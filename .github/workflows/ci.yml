@@ -67,6 +67,14 @@ jobs:
           grep -q 'accordion-toggle' src/main.tsx
           grep -q 'grid-template-columns:repeat(2,minmax(0,1fr))' src/styles.css
           grep -q '@media(max-width:360px)' src/styles.css
+      - name: Verify Portfolio Intelligence safeguards
+        run: |
+          grep -q 'sortPortfolioProjects' src/main.tsx
+          grep -q 'relativeTime' src/main.tsx
+          grep -q 'open-pr-chip' src/main.tsx
+          grep -q '.open-pr-chip' src/styles.css
+          grep -q 'Version evidence' src/main.tsx
+          grep -q 'OPEN PR' src/uiContract.ts
 
   addon-aarch64:
     runs-on: ubuntu-latest
@@ -76,12 +84,12 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: Validate release changelogs
         run: |
-          grep -q '^## \[0.5.6\]' CHANGELOG.md
+          grep -q '^## \[0.5.7\]' CHANGELOG.md
           test -s devhub/CHANGELOG.md
-          grep -q '^## 0.5.6$' devhub/CHANGELOG.md
+          grep -q '^## 0.5.7$' devhub/CHANGELOG.md
       - name: Validate Home Assistant app manifest
         run: |
-          grep -q 'version: "0.5.6"' devhub/config.yaml
+          grep -q 'version: "0.5.7"' devhub/config.yaml
           grep -q '  - app_config:rw' devhub/config.yaml
           ! grep -q 'addon_config' devhub/config.yaml
           ! grep -q 'armv7' devhub/config.yaml
@@ -123,7 +131,7 @@ jobs:
           for i in $(seq 1 45); do
             if curl --fail --silent http://127.0.0.1:18099/api/health >/tmp/devhub-health.json; then
               cat /tmp/devhub-health.json
-              grep -q '"version":"0.5.6"' /tmp/devhub-health.json
+              grep -q '"version":"0.5.7"' /tmp/devhub-health.json
               exit 0
             fi
             if ! docker ps --format '{{.Names}}' | grep -q '^devhub-smoke$'; then
