@@ -12,7 +12,7 @@ def setup_module(): Base.metadata.drop_all(bind=engine); Base.metadata.create_al
 def teardown_module(): Base.metadata.drop_all(bind=engine)
 
 def test_health():
-    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.5.0'
+    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.5.1'
 
 def test_sync_summary_empty_portfolio():
     r=client.get('/api/projects/sync-summary')
