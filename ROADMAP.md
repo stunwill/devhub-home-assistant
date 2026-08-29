@@ -58,7 +58,7 @@ Delivered in v0.4.0:
 - Project Details roadmap summary and phase/item visibility.
 - Roadmap-aware Next Release Builder suggestions without automatic scope selection.
 - Structured roadmap context included in generated release prompts.
-- GitHub Release to Git tag version fallback with recorded version source.
+- GitHub Release to semantic Git tag version fallback with recorded version source.
 - Richer CI aggregation using GitHub check-runs plus combined commit status.
 - Roadmap cache reuse when the source file SHA has not changed.
 - Manual Reparse Roadmap support.
@@ -144,6 +144,17 @@ Roadmap lifecycle correction delivered in v0.5.4:
 - Excluded historical phases from ordinary automatic release planning without treating them as ignored.
 - Improved Project Details lifecycle badges and reconciliation messaging for missing DevHub release history.
 - Added regression coverage for the MathQuest-style descending-roadmap failure.
+
+Portfolio density and scanability delivered in v0.5.5:
+
+- Replaced the large Portfolio action buttons with a compact refresh icon and one Create `+` action.
+- Consolidated Add Project and Add Feedback into a desktop popover / mobile bottom sheet while preserving their existing workflows.
+- Added compact portfolio summary metrics for total projects, CI attention, open PRs and release metadata gaps.
+- Reworked project cards so release, CI, next roadmap phase, PR count and sync freshness are visible without expanding the card.
+- Added expandable per-project details for repository metadata, release source, last merged PR and existing Roadmap / Project Details actions.
+- Shifted visual emphasis toward missing/failed states and away from normal zero/healthy values.
+- Added responsive two-column mobile cards where practical, with a narrow single-column fallback and three-to-four-column desktop layouts.
+- Preserved existing Roadmap Intelligence, release planning, ingress routing, Evidence Intelligence and aarch64 startup protections.
 
 Remaining v0.5.x opportunities:
 
