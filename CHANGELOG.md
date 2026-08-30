@@ -2,6 +2,33 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.5.10] - 2026-08-30
+
+### Project identity and Portfolio UX
+
+- Added Project Details controls to upload, replace and remove a custom project logo using the existing persisted project-logo storage.
+- Project logos accept PNG, WebP, JPEG and SVG files up to 5 MB and immediately replace the initials fallback throughout Project Details and Portfolio cards.
+- Uploaded project logos are presented as compact app-style icons with rounded corners, a visible border and subtle inset/shadow treatment while preserving the blue initials fallback when no logo is configured.
+- Logo image requests continue through DevHub's existing ingress image-rewrite support so Home Assistant ingress paths remain valid.
+
+### Console review
+
+- Reviewed the supplied Home Assistant browser console output and confirmed the visible `lit-element` deprecation, card-mod performance notice, kiosk-mode/HACS card startup messages, password-form/accessibility notices, autofocus notice, qBittorrent/MediaHub promise entries and `ha-panel-app.ts` messages are emitted by Home Assistant or other installed frontend/add-on integrations rather than DevHub.
+- DevHub does not add a synthetic `/backend/ping` endpoint for the observed ingress 404 because the failing ingress request is not attributable to the DevHub ingress route; masking another add-on's failed request would be incorrect.
+- No unrelated Home Assistant or third-party integration code is changed by this release.
+
+### Regression protection
+
+- Added backend coverage for a complete project-logo upload, retrieval and removal lifecycle in addition to invalid-file validation.
+- Extended frontend and CI safeguards for logo controls, app-icon presentation and ingress-safe API image rewriting.
+- Preserved project identity, Roadmap Intelligence, version discovery, refresh/CI behavior, Evidence Intelligence and aarch64 startup protections.
+
+### Release scope
+
+- Application, frontend and Home Assistant app metadata updated consistently to 0.5.10.
+- No database migration is required because `Project.logo_path` and project-logo storage already exist.
+- No Release Execution functionality is included.
+
 ## [0.5.9] - 2026-08-30
 
 ### Fixed

@@ -2,12 +2,13 @@
 
 DevHub is a Home Assistant app for managing a portfolio of GitHub-developed applications. It combines release visibility, pull-request status, structured roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning, deterministic roadmap/release reconciliation and optional Assisted Requirements.
 
-## v0.5.8 capabilities
+## v0.5.10 capabilities
 
 - Home Assistant app packaging with ingress.
 - FastAPI backend, React/Vite frontend and SQLite persistence.
 - GitHub repository URL onboarding and project discovery.
 - User-editable friendly project display names that remain separate from GitHub repository identity.
+- User-managed project logos with upload, replacement and removal controls in Project Details; custom artwork is displayed in rounded app-style icon frames, with initials retained as the fallback.
 - Compact responsive Portfolio dashboard with scan-first release, PR, CI, roadmap-next-phase and sync state.
 - Portfolio summary metrics for total projects, CI attention, open PRs and release metadata gaps.
 - Compact mobile application header with hamburger navigation beside the DevHub brand.

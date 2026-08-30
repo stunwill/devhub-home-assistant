@@ -13,7 +13,7 @@ def setup_module(): Base.metadata.drop_all(bind=engine); Base.metadata.create_al
 def teardown_module(): Base.metadata.drop_all(bind=engine)
 
 def test_health():
-    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.5.9'
+    r=client.get('/api/health'); assert r.status_code==200; assert r.json()['version']=='0.5.10'
 
 def test_sync_summary_empty_portfolio():
     r=client.get('/api/projects/sync-summary')
@@ -116,3 +116,21 @@ def test_logo_validation():
     project=client.get('/api/projects').json()[0]
     r=client.post(f"/api/projects/{project['id']}/logo",files={'file':('x.exe',b'bad','application/octet-stream')})
     assert r.status_code==415
+
+def test_project_logo_upload_get_and_remove():
+    project=client.get('/api/projects').json()[0]
+    pid=project['id']
+    svg=b'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="blue"/></svg>'
+    uploaded=client.post(f'/api/projects/{pid}/logo',files={'file':('logo.svg',svg,'image/svg+xml')})
+    assert uploaded.status_code==200
+    assert uploaded.json()['logo_url']==f'/api/projects/{pid}/logo'
+    refreshed=next(p for p in client.get('/api/projects').json() if p['id']==pid)
+    assert refreshed['logo_path']
+    served=client.get(f'/api/projects/{pid}/logo')
+    assert served.status_code==200
+    assert b'<svg' in served.content
+    removed=client.delete(f'/api/projects/{pid}/logo')
+    assert removed.status_code==204
+    refreshed=next(p for p in client.get('/api/projects').json() if p['id']==pid)
+    assert refreshed['logo_path'] is None
+    assert client.get(f'/api/projects/{pid}/logo').status_code==404
