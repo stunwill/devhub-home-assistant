@@ -22,6 +22,9 @@ describe('DevHub frontend contract', () => {
     expect(screen.getByText(/OPEN PR/)).toBeInTheDocument();
     expect(screen.getByText(/Open pull request/)).toBeInTheDocument();
     expect(screen.getByText(/Edit name/)).toBeInTheDocument();
+    expect(screen.getByText(/Project logo/)).toBeInTheDocument();
+    expect(screen.getByText(/Upload logo/)).toBeInTheDocument();
+    expect(screen.getByText(/Remove logo/)).toBeInTheDocument();
     expect(screen.getByText(/Version evidence/)).toBeInTheDocument();
     expect(screen.getByText(/Roadmap Intelligence/)).toBeInTheDocument();
     expect(screen.getByText(/Analyse & Draft Requirement/)).toBeInTheDocument();
