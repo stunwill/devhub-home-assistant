@@ -88,6 +88,15 @@ class GitHubService:
             text = base64.b64decode(data["content"]).decode("utf-8")
         return text, {"sha": data.get("sha"), "path": data.get("path"), "html_url": data.get("html_url")}
 
+    async def top_level_directories(self, owner: str, repo: str, ref: str) -> list[str]:
+        try:
+            data = await self._get(f"/repos/{owner}/{repo}/contents?ref={ref}") or []
+        except Exception:
+            return []
+        if not isinstance(data, list):
+            return []
+        return [str(item.get("name")) for item in data if item.get("type") == "dir" and item.get("name") and not str(item.get("name")).startswith(".")][:40]
+
     async def _evidence_from_file(self, owner: str, repo: str, ref: str, path: str, source: str, parser):
         try:
             text = await self.file_text(owner, repo, path, ref)
@@ -123,6 +132,15 @@ class GitHubService:
         match = cls.APP_VERSION_RE.search(text)
         return match.group(1) if match else None
 
+    @classmethod
+    def _version_key(cls, value: str | None):
+        if not value:
+            return None
+        match = re.match(r"^v?(\d+)\.(\d+)(?:\.(\d+))?", value.strip(), re.I)
+        if not match:
+            return None
+        return (int(match.group(1)), int(match.group(2)), int(match.group(3) or 0))
+
     async def version_evidence(self, owner: str, repo: str, ref: str, changelog_path: str | None = None):
         evidence = []
         release = await self.latest_release(owner, repo)
@@ -133,14 +151,20 @@ class GitHubService:
         if tag:
             evidence.append({"source": "Git tag", "version": tag.get("name"), "url": f"https://github.com/{owner}/{repo}/tree/{tag.get('name')}"})
         manifest_paths = ["config.yaml", f"{repo.replace('-home-assistant','')}/config.yaml", "devhub/config.yaml", "addon/config.yaml", "app/config.yaml"]
+        for directory in await self.top_level_directories(owner, repo, ref):
+            manifest_paths.append(f"{directory}/config.yaml")
         seen = set()
+        manifests = []
         for path in manifest_paths:
             if path in seen:
                 continue
             seen.add(path)
             item = await self._evidence_from_file(owner, repo, ref, path, "Home Assistant manifest", self._manifest_version)
             if item:
-                evidence.append(item); break
+                manifests.append(item)
+        if manifests:
+            manifests.sort(key=lambda item: self._version_key(item.get("version")) or (-1, -1, -1), reverse=True)
+            evidence.append(manifests[0])
         if changelog_path:
             item = await self._evidence_from_file(owner, repo, ref, changelog_path, "CHANGELOG.md", self._changelog_version)
             if item: evidence.append(item)

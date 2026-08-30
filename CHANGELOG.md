@@ -2,6 +2,29 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.5.9] - 2026-08-30
+
+### Fixed
+
+- Corrected Home Assistant version discovery for repositories whose packaged add-on/app manifest lives inside a product directory that cannot be derived from the GitHub repository slug.
+- DevHub now inspects bounded top-level repository directories for packaged `config.yaml` manifests in addition to its existing known manifest paths.
+- When multiple valid Home Assistant manifests are found, DevHub selects the highest semantic version rather than stopping at the first stale manifest candidate.
+- This fixes the MediaHub case where `mediahub/config.yaml` reports `0.10.0-dev` but DevHub previously surfaced stale `0.1.1-dev` metadata.
+- Once the correct `0.10.0-dev` evidence is synchronised, existing semantic Roadmap Intelligence correctly resolves `v0.10.0 Television Requests and Sonarr Workflow` as the active phase and `Future` as the following planning bucket, rather than presenting delivered `v0.9.0 Plex Library Intelligence` as next.
+
+### Regression protection
+
+- Added version-evidence tests for product-directory Home Assistant manifests and multiple competing manifest candidates.
+- Added a representative MediaHub lifecycle test covering delivered `v0.9.0`, in-progress `v0.10.0`, `0.10.0-dev` detected metadata and the Future bucket.
+- Preserved GitHub Release/tag precedence when those authoritative sources exist.
+- Preserved Portfolio refresh, CI commit association, mobile/ingress safeguards, Evidence Intelligence and aarch64 startup testing.
+
+### Release scope
+
+- Application, frontend and Home Assistant app metadata updated consistently to 0.5.9.
+- No database migration is required.
+- No Release Execution functionality is included.
+
 ## [0.5.8] - 2026-08-30
 
 ### Fixed

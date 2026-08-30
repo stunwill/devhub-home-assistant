@@ -1,5 +1,5 @@
 name: DevHub
-version: "0.5.8"
+version: "0.5.9"
 slug: devhub
 description: Development portfolio, feedback, roadmap and release management for Home Assistant
 url: https://github.com/stunwill/devhub-home-assistant
