@@ -53,6 +53,18 @@ def test_stale_in_progress_historical_phase_cannot_drive_next_phase():
     assert _choose_current_next(project('v0.5.7'),phases)==(2,3)
 
 
+def test_mediahub_dev_version_resolves_active_phase_and_future_bucket():
+    phases=[
+        phase(1,0,'v0.9.0','Plex Library Intelligence','Completed'),
+        phase(2,1,'v0.10.0','Television Requests and Sonarr Workflow','In Progress'),
+        phase(3,2,None,'Future',phase_type='Future',status='Future'),
+    ]
+    assert version_contains('v0.10.0','0.10.0-dev') is True
+    assert _choose_current_next(project('0.10.0-dev'),phases)==(2,3)
+    assert lifecycle_status(phases[0],'0.10.0-dev')=='Historical / Released'
+    assert lifecycle_status(phases[1],'0.10.0-dev')=='Current / Released'
+
+
 def test_current_phase_override():
     phases=[phase(1,0,'v0.35.0','Current'),phase(2,1,'v0.36.0','Next','Planned')]
     assert _choose_current_next(project(current=2,current_override=True),phases)[0]==2
