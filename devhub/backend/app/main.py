@@ -23,7 +23,7 @@ from .reconciliation import compare_changelog, reconcile_release
 from .roadmap_parser import lifecycle_status, parse_roadmap, semantic_version, version_contains, version_order_key
 from .schemas import AssistedRequirementDraft, AssistedRequirementRequest, ProjectCreate, ProjectDiscover, ProjectFromUrl, ProjectOut, ProjectUpdate, RegisterItemCreate, RegisterItemOut, RegisterItemUpdate, ReleaseCreate, ReleaseOut, TestResultUpdate, TEST_STATUSES
 
-APP_VERSION = "0.5.9"
+APP_VERSION = "0.5.10"
 DATA_DIR = Path(os.getenv("DEVHUB_DATA_DIR", "./data"))
 UPLOAD_DIR = DATA_DIR / "uploads"
 PROJECT_LOGO_DIR = DATA_DIR / "project-logos"
@@ -466,7 +466,7 @@ def create_item(payload:RegisterItemCreate,db:Session=Depends(get_db)):
         phase=db.get(RoadmapPhase,payload.roadmap_phase_id)
         if not phase or phase.project_id!=p.id: raise HTTPException(422,"Roadmap phase does not belong to project")
     data=payload.model_dump(exclude={"criteria"}); item=RegisterItem(**data,item_key=make_item_key(db,p,payload.item_type)); db.add(item); db.flush()
-    for c in payload.criteria: db.add(AcceptanceCriterion(item_id=item.id,**c.model_dump()))
+    for c in payload.criteria: db.add(AcceptanceCriterion(item_id=item.id,**c.model_dump())
     db.commit(); return item_or_404(db,item.id)
 
 @app.put("/api/register/{item_id}",response_model=RegisterItemOut)
