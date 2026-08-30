@@ -18,6 +18,15 @@ class FakeGitHubService(GitHubService):
     async def file_text(self, owner: str, repo: str, path: str, ref: str):
         return self._files.get(path)
 
+    async def top_level_directories(self, owner: str, repo: str, ref: str):
+        directories = []
+        for path in self._files:
+            if "/" in path:
+                directory = path.split("/", 1)[0]
+                if directory not in directories:
+                    directories.append(directory)
+        return directories
+
 
 def run(coro):
     return asyncio.run(coro)
@@ -63,6 +72,28 @@ def test_home_assistant_manifest_fallback():
     result = run(gh.release_or_tag("owner", "repo", "main"))
     assert result["version"] == "1.8.0"
     assert result["source"] == "Home Assistant manifest"
+
+
+def test_nested_home_assistant_manifest_is_discovered_for_product_directory():
+    gh = FakeGitHubService(files={
+        "mediahub/config.yaml": 'name: MediaHub\nversion: "0.10.0-dev"\nslug: mediahub\n',
+        "CHANGELOG.md": "## [Unreleased]\n\n## [0.9.0-dev]\n",
+    })
+    result = run(gh.release_or_tag("stunwill", "media-request-home-assistant", "main", "CHANGELOG.md"))
+    assert result["version"] == "0.10.0-dev"
+    assert result["source"] == "Home Assistant manifest"
+    manifest = next(item for item in result["evidence"] if item["source"] == "Home Assistant manifest")
+    assert manifest["path"] == "mediahub/config.yaml"
+
+
+def test_highest_nested_manifest_wins_when_multiple_config_files_exist():
+    gh = FakeGitHubService(files={
+        "legacy/config.yaml": 'version: "0.1.1-dev"\n',
+        "mediahub/config.yaml": 'version: "0.10.0-dev"\n',
+    })
+    result = run(gh.release_or_tag("owner", "repo", "main"))
+    assert result["version"] == "0.10.0-dev"
+    assert next(item for item in result["evidence"] if item["source"] == "Home Assistant manifest")["path"] == "mediahub/config.yaml"
 
 
 def test_changelog_fallback():
