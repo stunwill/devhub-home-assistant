@@ -2,6 +2,15 @@
 
 This changelog is packaged with the DevHub Home Assistant app so release notes are visible from the Home Assistant app/add-on store. The repository-level `CHANGELOG.md` remains the detailed product changelog.
 
+## 0.5.9
+
+- Fixed version discovery for Home Assistant projects whose add-on manifest lives in a product directory rather than a repository-name-derived path.
+- DevHub now discovers top-level packaged `config.yaml` manifests and selects the highest valid manifest version when more than one exists.
+- MediaHub-style repositories now resolve the active `0.10.0-dev` development version instead of stale `0.1.1-dev` metadata.
+- Correct version evidence allows Roadmap Intelligence to resolve `v0.10.0` as the active phase and prevents delivered `v0.9.0` from appearing as the next phase.
+- Added regression coverage for nested manifests and the MediaHub roadmap lifecycle case.
+- Preserved ingress, Portfolio refresh/CI fixes, Evidence Intelligence and aarch64 startup protections.
+
 ## 0.5.8
 
 - Added editable friendly project names while preserving GitHub repository identity.
