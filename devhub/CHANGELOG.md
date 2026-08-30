@@ -2,6 +2,15 @@
 
 This changelog is packaged with the DevHub Home Assistant app so release notes are visible from the Home Assistant app/add-on store. The repository-level `CHANGELOG.md` remains the detailed product changelog.
 
+## 0.5.10
+
+- Added upload, replace and remove controls for custom project logos in Project Details.
+- Custom logos replace the initials fallback on Portfolio cards and use rounded app-style icon framing with a border and subtle shadow.
+- Preserved PNG, WebP, JPEG and SVG validation, the existing 5 MB upload limit and Home Assistant ingress image rewriting.
+- Added end-to-end backend coverage for logo upload, retrieval and removal.
+- Reviewed the supplied browser console output and kept unrelated Home Assistant/HACS/add-on warnings out of DevHub rather than masking them with incorrect endpoints.
+- Preserved Roadmap Intelligence, version discovery, refresh/CI behavior, Evidence Intelligence and aarch64 startup protections.
+
 ## 0.5.9
 
 - Fixed version discovery for Home Assistant projects whose add-on manifest lives in a product directory rather than a repository-name-derived path.
