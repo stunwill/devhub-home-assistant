@@ -2,6 +2,17 @@
 
 This changelog is packaged with the DevHub Home Assistant app so release notes are visible from the Home Assistant app/add-on store. The repository-level `CHANGELOG.md` remains the detailed product changelog.
 
+## 0.6.0
+
+- Added supervised Release Execution for planned releases, covering implementation PR association, PR-head CI, merge readiness, merge detection, GitHub release evidence and reconciliation.
+- Added explicit PR association when automatic matching is ambiguous and kept volatile GitHub state live rather than duplicating it in DevHub storage.
+- Added `Generate Implementation Prompt` with release scope, current GitHub/CI state and explicit no-auto-merge/no-auto-publish instructions.
+- Added approved Register scope and acceptance progress to Release Execution.
+- Added compact Portfolio execution attention states such as PR OPEN, READY TO MERGE and MERGED / RELEASE PENDING.
+- Kept merged implementation distinct from a published GitHub Release and source-version metadata distinct from release publication.
+- Added responsive phone layouts and preserved Home Assistant ingress, project logos, Roadmap Intelligence, Evidence Intelligence and aarch64 startup protection.
+- DevHub does not automatically merge PRs, publish releases, deploy software or silently change release scope.
+
 ## 0.5.10
 
 - Added upload, replace and remove controls for custom project logos in Project Details.
