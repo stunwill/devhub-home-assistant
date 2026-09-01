@@ -1,8 +1,8 @@
 # DevHub
 
-DevHub is a Home Assistant app for managing a portfolio of GitHub-developed applications. It combines release visibility, pull-request status, structured roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning, deterministic roadmap/release reconciliation and optional Assisted Requirements.
+DevHub is a Home Assistant app for managing a portfolio of GitHub-developed applications. It combines release visibility, pull-request status, structured roadmaps, a defect/enhancement register, feedback evidence, acceptance criteria, release planning, supervised release execution, deterministic roadmap/release reconciliation and optional Assisted Requirements.
 
-## v0.5.10 capabilities
+## v0.6.0 capabilities
 
 - Home Assistant app packaging with ingress.
 - FastAPI backend, React/Vite frontend and SQLite persistence.
@@ -36,6 +36,13 @@ DevHub is a Home Assistant app for managing a portfolio of GitHub-developed appl
 - Deterministic `CHANGELOG.md` version parsing and reconciliation.
 - Roadmap-aware filtering and Next Release Builder suggestions without automatic scope selection.
 - Focused release prompts using current/next/selected phase, reconciliation and changelog context.
+- Supervised Release Execution for active release plans, connecting approved scope to implementation PR, PR-head CI, merge readiness, merge detection, GitHub release publication and reconciliation.
+- Deterministic implementation-PR suggestions using planned-version, branch and roadmap-title evidence, with explicit user confirmation for ambiguous associations.
+- PR-specific merge readiness that requires an open non-draft PR, confirmed passing CI and confirmed GitHub mergeability before reporting Ready to Merge.
+- Separate source-version, Git tag and published GitHub Release evidence so merged/versioned code is not misrepresented as a published release.
+- Approved Register scope and acceptance-result progress visible within Release Execution.
+- Execution-aware implementation prompt generation with explicit instructions not to merge or publish automatically.
+- Compact Portfolio execution attention states for PR OPEN, CI RUNNING, READY TO MERGE, MERGED / RELEASE PENDING and RELEASE ATTENTION.
 - Optional Assisted Requirements workflow that converts feedback into an editable structured requirement draft.
 - Screenshot/photo evidence analysis for compatible multimodal providers.
 - Evidence Intelligence for screen recordings using bounded local FFmpeg/ffprobe preprocessing and representative frame extraction.
@@ -50,13 +57,21 @@ DevHub is a Home Assistant app for managing a portfolio of GitHub-developed appl
 - Manual portfolio refresh, per-project refresh and Reparse Roadmap actions.
 - Raspberry Pi 5/aarch64 Home Assistant image build validation, media-processing smoke tests and startup smoke testing in CI.
 
+Release Execution is intentionally supervised. DevHub may detect and recommend lifecycle state, but it does not automatically merge pull requests, publish GitHub Releases, deploy applications, change release scope, mark requirements complete or edit roadmap state.
+
 ## Architecture
 
 ```text
 Home Assistant
   -> DevHub app / ingress
       -> React frontend
+          -> Release Execution panel
       -> FastAPI REST API
+          -> supervised Release Execution service
+              -> PR association/detection
+              -> PR-head CI + merge readiness
+              -> release publication evidence
+              -> reconciliation
       -> SQLite + attachments + project artwork under /config
       -> GitHub REST API
       -> backend synchronisation task
@@ -72,7 +87,7 @@ Home Assistant
           -> optional AI provider service
 ```
 
-Runtime state is stored under the Home Assistant app configuration mapping (`/config` inside the app), so database, project icons, roadmap snapshots and feedback attachments survive container replacement/upgrades.
+Runtime state is stored under the Home Assistant app configuration mapping (`/config` inside the app), so database, project icons, roadmap snapshots and feedback attachments survive container replacement/upgrades. Release Execution reuses the existing Release model for stable user decisions such as explicitly associated PR URLs, while volatile GitHub PR, CI and publication state is refreshed from GitHub rather than duplicated in SQLite.
 
 Derived frames used during video analysis are temporary processing artefacts. They are created in a temporary directory, sent only as bounded image evidence where supported, and removed automatically when processing ends.
 
