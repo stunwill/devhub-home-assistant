@@ -2,6 +2,45 @@
 
 All notable changes to DevHub are documented here.
 
+## [0.6.0] - 2026-09-02
+
+### Release Execution
+
+- Added the first supervised Release Execution workflow, connecting a DevHub release plan to implementation PR detection/association, PR-specific CI, merge readiness, merged implementation, GitHub release evidence and repository reconciliation.
+- Added a compact lifecycle panel for active release plans with explicit Development, Pull Request, CI, Merge, GitHub Release and Reconciliation stages.
+- Added deterministic PR matching using planned-version, branch and roadmap-title evidence, while requiring explicit user confirmation when a match is ambiguous.
+- Added explicit user-controlled PR association and removal using the existing persisted `Release.pr_url` field. Volatile PR and CI state remains live GitHub data instead of being duplicated in SQLite.
+- Added advisory merge readiness that requires an open non-draft PR, confirmed passing PR-head CI and confirmed GitHub mergeability before reporting Ready to Merge.
+- Added post-merge visibility for merge timestamp and merge commit SHA while keeping Merged separate from Released.
+- Added strict separation between version metadata present in source, Git tags and a published GitHub Release for the planned version.
+- Integrated existing roadmap/changelog reconciliation into the execution lifecycle without automatically editing repository files.
+- Added approved-scope traceability for Release Register items and acceptance-result progress.
+- Integrated the existing release prompt into Release Execution as `Generate Implementation Prompt`, enriched with current execution, CI and merge-readiness context.
+- Added compact actionable Portfolio execution badges such as PR OPEN, CI RUNNING, READY TO MERGE, MERGED / RELEASE PENDING and RELEASE ATTENTION.
+
+### Safety and supervision
+
+- DevHub does not merge pull requests, publish GitHub Releases, deploy software, silently alter release scope, mark requirements complete or modify roadmap state as part of Release Execution.
+- Unknown CI or mergeability is never treated as success.
+- Ambiguous PR candidates remain suggestions until the user explicitly associates one.
+
+### Responsive and Home Assistant integration
+
+- Added responsive Release Execution layouts for desktop, tablet and phone screens, including stacked lifecycle stages and touch-friendly PR controls at narrow widths.
+- Preserved Home Assistant ingress API routing, project-logo image rewriting, compact Portfolio cards and mobile navigation.
+
+### Regression protection
+
+- Added backend tests for deterministic PR/version matching and merge-readiness failure conditions including draft, failing CI, running CI, closed-unmerged PR and unknown mergeability.
+- Added frontend tests for lifecycle state presentation and actionable Portfolio attention states.
+- Extended CI safeguards for supervised Release Execution routes, prompts, mobile styling, ingress routing and existing project-logo behavior.
+- Preserved backend/frontend test suites, FFmpeg/ffprobe validation, aarch64 image build and Home Assistant startup smoke testing.
+
+### Release scope
+
+- Production backend, frontend and Home Assistant app metadata updated to 0.6.0.
+- No database migration is required because the first Release Execution capability reuses existing Release scope, reconciliation fields and `pr_url` persistence.
+
 ## [0.5.10] - 2026-08-30
 
 ### Project identity and Portfolio UX
