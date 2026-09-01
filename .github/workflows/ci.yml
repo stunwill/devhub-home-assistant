@@ -18,6 +18,14 @@ jobs:
           python-version: '3.12'
       - run: pip install -r backend/requirements.txt
       - run: python -m pytest backend/tests -q
+      - name: Verify supervised Release Execution backend
+        run: |
+          grep -q 'register_release_execution_routes' backend/app/server.py
+          grep -q '/api/releases/{release_id}/execution' backend/app/release_execution.py
+          grep -q '/api/releases/{release_id}/execution/pr' backend/app/release_execution.py
+          grep -q 'Do not merge the Pull Request automatically' backend/app/release_execution.py
+          grep -q 'Do not publish a GitHub Release or deploy software without an explicit user action' backend/app/release_execution.py
+          ! grep -q 'merge_pull_request' backend/app/release_execution.py
 
   frontend:
     runs-on: ubuntu-latest
@@ -46,6 +54,7 @@ jobs:
           grep -q "'/api/projects'" src/ingress.test.ts
           grep -q '/api/hassio_ingress/abc123/api/projects/from-url' src/ingress.test.ts
           grep -q 'img\[src\^="/api/"\]' src/ingress.ts
+          grep -q '/api/releases/${release.id}/execution' src/releaseExecution.tsx
       - name: Verify mobile responsive safeguards
         run: |
           grep -q '@media(max-width:800px)' src/styles.css
@@ -89,6 +98,15 @@ jobs:
           grep -q 'Remove logo' src/main.tsx
           grep -q 'project-app-logo' src/main.tsx
           grep -q '.project-logo-editor' src/styles.css
+      - name: Verify Release Execution UX safeguards
+        run: |
+          grep -q 'installReleaseExecution' src/bootstrap.ts
+          grep -q 'Generate Implementation Prompt' src/releaseExecution.tsx
+          grep -q 'Merge readiness' src/releaseExecution.tsx
+          grep -q 'Supervised workflow' src/releaseExecution.tsx
+          grep -q 'execution-portfolio-chip' src/releaseExecution.tsx
+          grep -q '@media(max-width:420px)' src/releaseExecution.css
+          grep -q 'GitHub Release' src/releaseExecution.tsx
 
   addon-aarch64:
     runs-on: ubuntu-latest
@@ -98,12 +116,12 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: Validate release changelogs
         run: |
-          grep -q '^## \[0.5.10\]' CHANGELOG.md
+          grep -q '^## \[0.6.0\]' CHANGELOG.md
           test -s devhub/CHANGELOG.md
-          grep -q '^## 0.5.10$' devhub/CHANGELOG.md
+          grep -q '^## 0.6.0$' devhub/CHANGELOG.md
       - name: Validate Home Assistant app manifest
         run: |
-          grep -q 'version: "0.5.10"' devhub/config.yaml
+          grep -q 'version: "0.6.0"' devhub/config.yaml
           grep -q '  - app_config:rw' devhub/config.yaml
           ! grep -q 'addon_config' devhub/config.yaml
           ! grep -q 'armv7' devhub/config.yaml
@@ -145,7 +163,7 @@ jobs:
           for i in $(seq 1 45); do
             if curl --fail --silent http://127.0.0.1:18099/api/health >/tmp/devhub-health.json; then
               cat /tmp/devhub-health.json
-              grep -q '"version":"0.5.10"' /tmp/devhub-health.json
+              grep -q '"version":"0.6.0"' /tmp/devhub-health.json
               exit 0
             fi
             if ! docker ps --format '{{.Names}}' | grep -q '^devhub-smoke$'; then
